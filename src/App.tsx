@@ -2,7 +2,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginForm from './components/LoginForm';
-import Dashboard from './components/Dashboard';
+import Dashboard from './pages/Dashboard';
 import { useAuth } from './utils/AuthContext';
 import './App.css';
 
