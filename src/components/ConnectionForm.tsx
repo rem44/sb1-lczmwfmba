@@ -61,45 +61,45 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           </div>
         </div>
         
-        {!isConnected ? (
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                isLoading ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              <LogIn size={16} className="mr-2" />
-              Se connecter
-              {isLoading && (
-                <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              )}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center bg-green-50 text-green-700 px-4 py-2 rounded-md">
-              <span className="text-lg">✓</span>
-              <span className="ml-2 font-medium">Connecté au SEAO</span>
-            </div>
-            
-            <button
-              type="button"
-              onClick={onStartScraping}
-              disabled={isLoading}
-              className={`w-full inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
-                isLoading ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              <Download size={16} className="mr-2" />
-              Démarrer le téléchargement
-              {isLoading && (
-                <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              )}
-            </button>
-          </div>
-        )}
+        <div className="space-y-4">
+          <button
+            type="submit"
+            disabled={isLoading || isConnected}
+            className={`w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+              (isLoading || isConnected) ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
+          >
+            <LogIn size={16} className="mr-2" />
+            Se connecter
+            {isLoading && !isConnected && (
+              <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            )}
+          </button>
+
+          {isConnected && (
+            <>
+              <div className="flex items-center justify-center bg-green-50 text-green-700 px-4 py-2 rounded-md">
+                <span className="text-lg">✓</span>
+                <span className="ml-2 font-medium">Connecté au SEAO</span>
+              </div>
+              
+              <button
+                type="button"
+                onClick={onStartScraping}
+                disabled={isLoading}
+                className={`w-full inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
+                  isLoading ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
+              >
+                <Download size={16} className="mr-2" />
+                Démarrer le téléchargement
+                {isLoading && (
+                  <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                )}
+              </button>
+            </>
+          )}
+        </div>
       </form>
     </div>
   );
