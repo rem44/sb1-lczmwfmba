@@ -1,114 +1,132 @@
-import { API_CONFIG } from '../utils/config';
+// src/services/api.ts
+import config from '../utils/config';
 
-interface AuthResponse {
-  requires_security_code?: boolean;
+interface ApiResponse {
+  success: boolean;
+  message?: string;
+  [key: string]: any;
+}
+
+interface LoginResponse extends ApiResponse {
   session_id?: string;
-  token?: string;
-  error?: string;
+  requires_security_code?: boolean;
 }
 
-interface StatusResponse {
-  status: string;
-  progress: number;
-  message: string;
+interface DownloadStartResponse extends ApiResponse {
+  task_id?: string;
 }
 
-export const api = {
-  async login(email: string, password: string): Promise<AuthResponse> {
+interface DownloadStatusResponse extends ApiResponse {
+  task?: {
+    id: string;
+    status: 'initializing' | 'running' | 'completed' | 'failed';
+    progress: number;
+    message: string;
+    result?: {
+      download_id: string;
+      [key: string]: any;
+    };
+  };
+}
+
+const API = {
+  // Méthode générique pour les appels avec gestion des erreurs
+  async fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<any> {
+    const sessionId = localStorage.getItem('sessionId');
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+
+    const fullOptions: RequestInit = {
+      ...options,
+      headers
+    };
+
     try {
-      const response = await fetch(`${API_CONFIG.baseUrl}/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
+      const response = await fetch(`${config.API_BASE_URL}${endpoint}`, fullOptions);
+      
+      // Vérifier si le serveur est accessible
       if (!response.ok) {
-        throw new Error('Erreur de connexion');
+        if (response.status === 401) {
+          // Rediriger vers la page de connexion si la session a expiré
+          localStorage.removeItem('sessionId');
+          window.location.href = '/login';
+          throw new Error('Session expirée. Veuillez vous reconnecter.');
+        }
+        
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
-
+      
       return await response.json();
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  },
-
-  async submitSecurityCode(code: string, sessionId: string): Promise<AuthResponse> {
-    try {
-      const response = await fetch(`${API_CONFIG.baseUrl}/auth`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, session_id: sessionId })
-      });
-
-      if (!response.ok) {
-        throw new Error('Code invalide');
+      if (error instanceof Error) {
+        if (error.message === 'Failed to fetch') {
+          throw new Error('Le serveur n\'est pas accessible. Veuillez vérifier que le serveur est démarré.');
+        }
+        throw error;
       }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Security code error:', error);
-      throw error;
+      throw new Error('Une erreur inconnue est survenue');
     }
   },
-
-  async checkSession(): Promise<boolean> {
+  
+  // Vérifier si le serveur est accessible
+  async checkServerStatus(): Promise<boolean> {
     try {
-      const token = localStorage.getItem('seao_token');
-      if (!token) return false;
-
-      const response = await fetch(`${API_CONFIG.baseUrl}/auth/check`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
+      const response = await fetch(`${config.API_BASE_URL}/healthcheck`);
       return response.ok;
-    } catch {
+    } catch (error) {
+      console.error('Erreur lors de la vérification du statut du serveur', error);
       return false;
     }
   },
-
-  async startDownload(): Promise<{ task_id: string }> {
-    try {
-      const token = localStorage.getItem('seao_token');
-      const response = await fetch(`${API_CONFIG.baseUrl}/download/start`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur de démarrage du téléchargement');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Download start error:', error);
-      throw error;
-    }
+  
+  // Authentification
+  async login(email: string, password: string): Promise<LoginResponse> {
+    return this.fetchWithAuth('/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
   },
-
-  async checkDownloadStatus(taskId: string): Promise<StatusResponse> {
-    try {
-      const token = localStorage.getItem('seao_token');
-      const response = await fetch(`${API_CONFIG.baseUrl}/download/status?task_id=${taskId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error('Erreur de vérification du statut');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Status check error:', error);
-      throw error;
-    }
+  
+  // Soumettre le code de sécurité
+  async submitSecurityCode(securityCode: string, sessionId: string): Promise<LoginResponse> {
+    return this.fetchWithAuth('/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ security_code: securityCode, session_id: sessionId })
+    });
   },
-
+  
+  // Vérifier si la session est valide
+  async checkSession(sessionId: string): Promise<ApiResponse> {
+    return this.fetchWithAuth('/auth/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId })
+    });
+  },
+  
+  // Démarrer un téléchargement
+  async startDownload(sessionId: string, options: Record<string, any> = {}): Promise<DownloadStartResponse> {
+    return this.fetchWithAuth('/download/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, options })
+    });
+  },
+  
+  // Vérifier l'état d'un téléchargement
+  async checkDownloadStatus(taskId: string): Promise<DownloadStatusResponse> {
+    return this.fetchWithAuth(`/download/status?task_id=${taskId}`);
+  },
+  
+  // Obtenir l'URL de téléchargement du ZIP
   getDownloadUrl(downloadId: string): string {
-    const token = localStorage.getItem('seao_token');
-    return `${API_CONFIG.baseUrl}/download/files?download_id=${downloadId}&token=${token}`;
+    return `${config.API_BASE_URL}/download/files?download_id=${downloadId}`;
   }
 };
+
+export default API;
