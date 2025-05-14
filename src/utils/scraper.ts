@@ -7,17 +7,25 @@ export const API_CONFIG = {
   
   // Helper method pour construire des URLs d'API complètes
   getUrl: (endpoint: string): string => {
-    const formattedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${API_BASE_URL}${formattedEndpoint}`;
+    // Correction pour éviter les double slashes
+    const baseUrlWithoutTrailingSlash = API_BASE_URL.endsWith('/') 
+      ? API_BASE_URL.slice(0, -1) 
+      : API_BASE_URL;
+    const endpointWithLeadingSlash = endpoint.startsWith('/') 
+      ? endpoint 
+      : `/${endpoint}`;
+    return `${baseUrlWithoutTrailingSlash}${endpointWithLeadingSlash}`;
   }
 };
 
 // Fonction pour vérifier si l'API est accessible
 export async function checkApiHealth(): Promise<boolean> {
   try {
-    console.log('Tentative de connexion à:', `${API_BASE_URL}/health`);
+    // Utiliser la fonction getUrl pour éviter les problèmes de double slash
+    const healthUrl = API_CONFIG.getUrl('/health');
+    console.log('Tentative de connexion à:', healthUrl);
     
-    const response = await fetch(`${API_BASE_URL}/health`, {
+    const response = await fetch(healthUrl, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -44,10 +52,11 @@ export async function startScrapingJob(username: string, password: string, searc
     console.log('Démarrage d\'un job de scraping pour:', username);
     
     // IMPORTANT: Utiliser la méthode POST et non GET
-    const response = await fetch(`${API_BASE_URL}/scraper`, {
+    // Adapter pour utiliser /api/start qui est l'endpoint de votre backend Railway
+    const response = await fetch(API_CONFIG.getUrl('/start'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, searchTerms })
+      body: JSON.stringify({ email: username, password, searchTerms })
     });
     
     console.log('Réponse reçue:', response);
@@ -66,15 +75,16 @@ export async function startScrapingJob(username: string, password: string, searc
   }
 }
 
-// Version alternative utilisant /scraper/start
+// Version alternative utilisant /status pour vérifier l'état du scraping
 export async function startScrapingJobAlt(username: string, password: string, searchTerms?: string[]): Promise<{jobId: string} | null> {
   try {
     console.log('Démarrage d\'un job de scraping (alt) pour:', username);
     
-    const response = await fetch(`${API_BASE_URL}/scraper/start`, {
+    // Adapter pour utiliser /api/start qui est l'endpoint de votre backend Railway
+    const response = await fetch(API_CONFIG.getUrl('/start'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, searchTerms })
+      body: JSON.stringify({ email: username, password, searchTerms })
     });
     
     console.log('Réponse reçue:', response);
@@ -94,11 +104,12 @@ export async function startScrapingJobAlt(username: string, password: string, se
 }
 
 // Fonction pour vérifier le statut d'un job
-export async function checkJobStatus(jobId: string): Promise<any> {
+export async function checkJobStatus(jobId?: string): Promise<any> {
   try {
-    console.log('Vérification du statut du job:', jobId);
+    console.log('Vérification du statut du job');
     
-    const response = await fetch(`${API_BASE_URL}/scraper/status/${jobId}`, {
+    // Adapter pour utiliser /api/status qui est l'endpoint de votre backend Railway
+    const response = await fetch(API_CONFIG.getUrl('/status'), {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
