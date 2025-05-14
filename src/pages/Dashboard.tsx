@@ -9,35 +9,36 @@ import { runPythonScript } from '../utils/pythonIntegration';
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'downloader' | 'analyzer'>('downloader');
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [progress, setProgress] = useState(10);
   const [error, setError] = useState<string | null>(null);
   const [statusSteps, setStatusSteps] = useState<StatusStep[]>([
     {
       id: '1',
-      text: 'Système prêt. En attente de démarrage...',
+      text: 'Système prêt. En attente de connexion...',
       status: 'success',
     },
     {
       id: '2',
-      text: 'Démarrage du processus de téléchargement SEAO...',
+      text: 'Connexion au SEAO...',
       status: 'waiting',
     },
     {
       id: '3',
-      text: 'Connexion avec l\'identifiant:',
+      text: 'Authentification avec l\'identifiant:',
       status: 'waiting',
       details: 'shawn.daley@venturecarpets.com',
     },
     {
       id: '4',
-      text: 'Connexion réussie au SEAO',
+      text: 'Téléchargement des documents',
       status: 'waiting',
     }
   ]);
 
   const [documents, setDocuments] = useState<Document[]>([]);
 
-  const handleStartScraping = async (credentials: { email: string; password: string }) => {
+  const handleLogin = async (credentials: { email: string; password: string }) => {
     setError(null);
     setIsLoading(true);
     updateStatus('2', 'loading');
@@ -51,13 +52,9 @@ const Dashboard: React.FC = () => {
       
       setTimeout(() => {
         updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials.email}`);
-        updateStatus('4', 'success');
+        setIsLoading(false);
+        setIsConnected(true);
         setProgress(50);
-        
-        setTimeout(() => {
-          setIsLoading(false);
-          setProgress(100);
-        }, 2000);
       }, 1500);
     } catch (err) {
       setIsLoading(false);
@@ -69,6 +66,26 @@ const Dashboard: React.FC = () => {
           updateStatus(step.id, 'error');
         }
       });
+    }
+  };
+
+  const handleStartScraping = async () => {
+    setIsLoading(true);
+    updateStatus('4', 'loading');
+    setProgress(60);
+
+    try {
+      // Simulate download process
+      setTimeout(() => {
+        updateStatus('4', 'success');
+        setProgress(100);
+        setIsLoading(false);
+      }, 3000);
+    } catch (err) {
+      setIsLoading(false);
+      const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
+      setError(errorMessage);
+      updateStatus('4', 'error');
     }
   };
   
@@ -119,8 +136,10 @@ const Dashboard: React.FC = () => {
           )}
           
           <ConnectionForm 
+            onLogin={handleLogin}
             onStartScraping={handleStartScraping}
             isLoading={isLoading}
+            isConnected={isConnected}
           />
           
           <OperationStatus 
