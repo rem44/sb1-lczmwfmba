@@ -1,50 +1,28 @@
-// src/App.tsx
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import LoginForm from './components/LoginForm';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
-import { useAuth } from './utils/AuthContext';
+import SearchConfig from './pages/SearchConfig';
+import ResultsViewer from './pages/ResultsViewer';
+import Documents from './pages/Documents';
+import History from './pages/History';
+import Settings from './pages/Settings';
 import './App.css';
-
-// Composant pour les routes protégées
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
-  
-  if (loading) {
-    return <div className="loading">Chargement...</div>;
-  }
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  
-  return <>{children}</>;
-};
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
-      <div className="app-container">
-        <header className="app-header">
-          <h1>SEAO Analyzer - Analyse automatisée des opportunités de revêtement de sol dans les appels d'offres</h1>
-        </header>
-        
-        <main className="app-content">
-          <Routes>
-            <Route path="/login" element={<LoginForm />} />
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } 
-            />
-            <Route path="/" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+    <Router>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/search" element={<SearchConfig />} />
+          <Route path="/results" element={<ResultsViewer />} />
+          <Route path="/documents" element={<Documents />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Layout>
+    </Router>
   );
 };
 

@@ -1,142 +1,177 @@
-// src/components/Dashboard.tsx
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../utils/AuthContext';
-import API from '../services/api';
+import React, { useState } from 'react';
+import TabNavigation from '../components/TabNavigation';
+import ConnectionForm from '../components/ConnectionForm';
+import OperationStatus, { StatusStep } from '../components/OperationStatus';
+import DocumentStats from '../components/DocumentStats';
+import DocumentsTable, { Document } from '../components/DocumentsTable';
+import { runPythonScript } from '../utils/pythonIntegration';
 
 const Dashboard: React.FC = () => {
-  const { isAuthenticated, sessionId } = useAuth();
-  const [isDownloading, setIsDownloading] = useState<boolean>(false);
-  const [downloadTask, setDownloadTask] = useState<string | null>(null);
-  const [progress, setProgress] = useState<number>(0);
-  const [statusMessage, setStatusMessage] = useState<string>('');
-  const [downloadId, setDownloadId] = useState<string | null>(null);
-  const [error, setError] = useState<string>('');
-  
-  // Vérifier l'état du téléchargement en cours
-  useEffect(() => {
-    let intervalId: number;
-    
-    if (downloadTask && isDownloading) {
-      intervalId = window.setInterval(async () => {
-        try {
-          const response = await API.checkDownloadStatus(downloadTask);
-          
-          if (response.success && response.task) {
-            const task = response.task;
-            
-            setProgress(task.progress || 0);
-            setStatusMessage(task.message || '');
-            
-            // Si terminé
-            if (task.status === 'completed' && task.result?.download_id) {
-              setIsDownloading(false);
-              setDownloadId(task.result.download_id);
-            }
-            
-            // Si échec
-            if (task.status === 'failed') {
-              setIsDownloading(false);
-              setError(task.message || 'Échec du téléchargement');
-            }
-          }
-        } catch (error) {
-          if (error instanceof Error) {
-            setError(error.message);
-          } else {
-            setError('Une erreur inconnue est survenue');
-          }
-          setIsDownloading(false);
-        }
-      }, 2000); // Vérifier toutes les 2 secondes
+  const [activeTab, setActiveTab] = useState<'downloader' | 'analyzer'>('downloader');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [progress, setProgress] = useState(10);
+  const [error, setError] = useState<string | null>(null);
+  const [statusSteps, setStatusSteps] = useState<StatusStep[]>([
+    {
+      id: '1',
+      text: 'Système prêt. En attente de connexion...',
+      status: 'success',
+    },
+    {
+      id: '2',
+      text: 'Connexion au SEAO...',
+      status: 'waiting',
+    },
+    {
+      id: '3',
+      text: 'Authentification avec l\'identifiant:',
+      status: 'waiting',
+      details: 'shawn.daley@venturecarpets.com',
+    },
+    {
+      id: '4',
+      text: 'Téléchargement des documents',
+      status: 'waiting',
     }
-    
-    return () => {
-      if (intervalId) window.clearInterval(intervalId);
-    };
-  }, [downloadTask, isDownloading]);
-  
-  const startDownload = async () => {
-    if (!sessionId) return;
+  ]);
+
+  const [documents, setDocuments] = useState<Document[]>([]);
+
+  const handleLogin = async (credentials: { email: string; password: string }) => {
+    setError(null);
+    setIsLoading(true);
+    updateStatus('2', 'loading');
     
     try {
-      setIsDownloading(true);
-      setProgress(0);
-      setStatusMessage('Préparation du téléchargement...');
-      setError('');
-      setDownloadId(null);
+      await runPythonScript(credentials);
       
-      const response = await API.startDownload(sessionId);
+      updateStatus('2', 'success');
+      updateStatus('3', 'loading');
+      setProgress(25);
       
-      if (response.success && response.task_id) {
-        setDownloadTask(response.task_id);
-      } else {
-        setError(response.message || 'Erreur lors du démarrage du téléchargement');
-        setIsDownloading(false);
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Une erreur inconnue est survenue');
-      }
-      setIsDownloading(false);
+      setTimeout(() => {
+        updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials.email}`);
+        setIsLoading(false);
+        setIsConnected(true);
+        setProgress(50);
+      }, 1500);
+    } catch (err) {
+      setIsLoading(false);
+      const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
+      setError(errorMessage);
+      
+      statusSteps.forEach((step) => {
+        if (step.status === 'loading') {
+          updateStatus(step.id, 'error');
+        }
+      });
+    }
+  };
+
+  const handleStartScraping = async () => {
+    setIsLoading(true);
+    updateStatus('4', 'loading');
+    setProgress(60);
+
+    try {
+      // Simulate download process
+      setTimeout(() => {
+        updateStatus('4', 'success');
+        setProgress(100);
+        setIsLoading(false);
+      }, 3000);
+    } catch (err) {
+      setIsLoading(false);
+      const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
+      setError(errorMessage);
+      updateStatus('4', 'error');
     }
   };
   
-  const downloadFiles = () => {
-    if (downloadId) {
-      window.location.href = API.getDownloadUrl(downloadId);
-    }
+  const updateStatus = (id: string, status: StatusStep['status'], details?: string) => {
+    setStatusSteps(prevSteps => 
+      prevSteps.map(step => 
+        step.id === id 
+          ? { ...step, status, ...(details ? { details } : {}) } 
+          : step
+      )
+    );
   };
-  
+
+  const handleViewDocument = (doc: Document) => {
+    console.log('Viewing document:', doc);
+  };
+
+  const handleDownloadDocument = (doc: Document) => {
+    console.log('Downloading document:', doc);
+  };
+
+  const handleDeleteDocument = (doc: Document) => {
+    console.log('Deleting document:', doc);
+  };
+
   return (
-    <div className="dashboard-container">
-      <h1>Tableau de bord</h1>
+    <div>
+      <TabNavigation 
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
       
-      {error && (
-        <div className="error-message">
-          {error}
+      {activeTab === 'downloader' && (
+        <div>
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          <ConnectionForm 
+            onLogin={handleLogin}
+            onStartScraping={handleStartScraping}
+            isLoading={isLoading}
+            isConnected={isConnected}
+          />
+          
+          <OperationStatus 
+            steps={statusSteps}
+            progress={progress}
+          />
+          
+          <DocumentStats 
+            totalTenders={0}
+            totalDocuments={0}
+            totalSize="0 Mo"
+            downloadPath="/telecharges/"
+          />
+          
+          <DocumentsTable 
+            documents={documents}
+            onViewDocument={handleViewDocument}
+            onDownloadDocument={handleDownloadDocument}
+            onDeleteDocument={handleDeleteDocument}
+          />
         </div>
       )}
       
-      <div className="dashboard-actions">
-        <button 
-          className="action-button seao-downloader"
-          onClick={startDownload}
-          disabled={isDownloading || !isAuthenticated}
-        >
-          SEAO Downloader
-        </button>
-        
-        {/* Autres boutons d'action ici */}
-      </div>
-      
-      {isDownloading && (
-        <div className="download-progress">
-          <h3>Téléchargement en cours</h3>
-          <div className="progress-bar-container">
-            <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-          </div>
-          <p className="progress-text">{progress}% - {statusMessage}</p>
+      {activeTab === 'analyzer' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-600">
+            Cette fonctionnalité sera disponible prochainement. Elle permettra d'analyser les
+            documents téléchargés à l'aide de l'API OpenAI pour extraire des informations
+            stratégiques.
+          </p>
         </div>
       )}
-      
-      {downloadId && (
-        <div className="download-complete">
-          <h3>Téléchargement terminé</h3>
-          <button 
-            className="download-button"
-            onClick={downloadFiles}
-          >
-            Télécharger les fichiers (ZIP)
-          </button>
-        </div>
-      )}
-      
-      <div className="operations-section">
-        <h2>Opérations en cours</h2>
-        {/* Liste des opérations en cours ici */}
-      </div>
     </div>
   );
 };
