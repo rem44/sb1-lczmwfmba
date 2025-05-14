@@ -1,153 +1,102 @@
-// src/components/LoginForm.tsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../utils/AuthContext';
+import { LogIn, Download } from 'lucide-react';
 
-const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [securityCode, setSecurityCode] = useState<string>('');
-  const [tempSessionId, setTempSessionId] = useState<string>('');
-  const [requiresCode, setRequiresCode] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-  
-  const { login, submitSecurityCode, serverAvailable } = useAuth();
-  const navigate = useNavigate();
-  
-  const handleLogin = async (e: React.FormEvent) => {
+interface ConnectionFormProps {
+  onLogin: (credentials: { email: string; password: string }) => void;
+  onStartScraping: () => void;
+  isLoading?: boolean;
+  isConnected?: boolean;
+}
+
+const ConnectionForm: React.FC<ConnectionFormProps> = ({ 
+  onLogin,
+  onStartScraping,
+  isLoading = false,
+  isConnected = false
+}) => {
+  const [email, setEmail] = useState('shawn.daley@venturecarpets.com');
+  const [password, setPassword] = useState('********');
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      const response = await login(email, password);
-      
-      if (response.requiresSecurityCode) {
-        setRequiresCode(true);
-        setTempSessionId(response.sessionId);
-      } else if (response.success) {
-        navigate('/dashboard');
-      } else {
-        setError(response.message || 'Erreur de connexion');
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Une erreur inconnue est survenue');
-      }
-    } finally {
-      setIsLoading(false);
-    }
+    onLogin({ email, password });
   };
-  
-  const handleSecurityCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      const response = await submitSecurityCode(securityCode, tempSessionId);
-      
-      if (response.success) {
-        navigate('/dashboard');
-      } else {
-        setError(response.message || 'Code de sécurité invalide');
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Une erreur inconnue est survenue');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Si le serveur n'est pas disponible
-  if (!serverAvailable) {
-    return (
-      <div className="error-container">
-        <div className="error-message">
-          Le serveur n'est pas accessible. Veuillez vérifier que le serveur est démarré.
-        </div>
-      </div>
-    );
-  }
-  
+
   return (
-    <div className="login-container">
-      <h2>Configuration de la connexion SEAO</h2>
-      
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
-      
-      {!requiresCode ? (
-        <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label htmlFor="email">Identifiant (Email)</label>
+    <div className="bg-white rounded-lg shadow p-6 mb-6 slide-in-up">
+      <h2 className="text-lg font-medium text-gray-900 mb-4">Configuration de la connexion SEAO</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Identifiant (Email)
+            </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
+              disabled={isConnected}
             />
           </div>
-          
-          <div className="form-group">
-            <label htmlFor="password">Mot de passe</label>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Mot de passe
+            </label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
+              disabled={isConnected}
             />
           </div>
-          
-          <button 
-            type="submit" 
-            className="submit-button"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Connexion...' : 'Se connecter'}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleSecurityCodeSubmit}>
-          <div className="security-code-container">
-            <p>Un code de sécurité a été envoyé à votre adresse email. Veuillez le saisir ci-dessous:</p>
-            
-            <div className="form-group">
-              <label htmlFor="securityCode">Code de sécurité</label>
-              <input
-                id="securityCode"
-                type="text"
-                value={securityCode}
-                onChange={(e) => setSecurityCode(e.target.value)}
-                placeholder="Exemple: 123456"
-                required
-              />
-            </div>
-            
-            <button 
-              type="submit" 
-              className="submit-button"
+        </div>
+        <div className="flex justify-between items-center">
+          {!isConnected ? (
+            <button
+              type="submit"
               disabled={isLoading}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                isLoading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
             >
-              {isLoading ? 'Vérification...' : 'Valider le code'}
+              <LogIn size={16} className="mr-2" />
+              Se connecter
+              {isLoading && (
+                <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              )}
             </button>
-          </div>
-        </form>
-      )}
+          ) : (
+            <button
+              type="button"
+              onClick={onStartScraping}
+              disabled={isLoading}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
+                isLoading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              <Download size={16} className="mr-2" />
+              Démarrer le téléchargement
+              {isLoading && (
+                <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              )}
+            </button>
+          )}
+          
+          {isConnected && (
+            <span className="text-sm text-green-600 font-medium">
+              ✓ Connecté au SEAO
+            </span>
+          )}
+        </div>
+      </form>
     </div>
   );
 };
 
-export default LoginForm;
+export default ConnectionForm;
