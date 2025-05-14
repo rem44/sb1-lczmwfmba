@@ -1,48 +1,114 @@
 import React, { useState } from 'react';
-import { LogIn, Download } from 'lucide-react';
+import { LogIn } from 'lucide-react';
+import SecurityCodeForm from './SecurityCodeForm';
+import { api } from '../services/api';
 
 interface ConnectionFormProps {
-  onLogin: (credentials: { email: string; password: string }) => void;
-  onStartScraping: () => void;
-  isLoading?: boolean;
-  isConnected?: boolean;
+  onLoginSuccess: (token: string) => void;
 }
 
-const ConnectionForm: React.FC<ConnectionFormProps> = ({ 
-  onLogin,
-  onStartScraping,
-  isLoading = false,
-  isConnected = false
-}) => {
-  const [email, setEmail] = useState('shawn.daley@venturecarpets.com');
-  const [password, setPassword] = useState('********');
+const ConnectionForm: React.FC<ConnectionFormProps> = ({ onLoginSuccess }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [securityCode, setSecurityCode] = useState({
+    required: false,
+    sessionId: ''
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin({ email, password });
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await api.login(email, password);
+
+      if (response.requires_security_code && response.session_id) {
+        setSecurityCode({
+          required: true,
+          sessionId: response.session_id
+        });
+      } else if (response.token) {
+        onLoginSuccess(response.token);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur de connexion');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSecurityCodeSubmit = async (code: string) => {
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const response = await api.submitSecurityCode(code, securityCode.sessionId);
+      
+      if (response.token) {
+        onLoginSuccess(response.token);
+      } else {
+        throw new Error('Code invalide');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur de validation du code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSecurityCodeCancel = () => {
+    setSecurityCode({ required: false, sessionId: '' });
+    setError(null);
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 mb-6 slide-in-up">
-      <h2 className="text-lg font-medium text-gray-900 mb-4">Configuration de la connexion SEAO</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        Connexion au SEAO
+      </h2>
+
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {securityCode.required ? (
+        <SecurityCodeForm
+          onSubmit={handleSecurityCodeSubmit}
+          onCancel={handleSecurityCodeCancel}
+          isLoading={isLoading}
+        />
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Identifiant (Email)
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Adresse courriel
             </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
-              disabled={isConnected}
             />
           </div>
+
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
               Mot de passe
             </label>
             <input
@@ -50,51 +116,33 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
-              disabled={isConnected}
             />
           </div>
-        </div>
-        <div className="flex justify-between items-center">
-          {!isConnected ? (
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                isLoading ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              <LogIn size={16} className="mr-2" />
-              Se connecter
-              {isLoading && (
-                <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              )}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onStartScraping}
-              disabled={isLoading}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
-                isLoading ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              <Download size={16} className="mr-2" />
-              Démarrer le téléchargement
-              {isLoading && (
-                <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              )}
-            </button>
-          )}
-          
-          {isConnected && (
-            <span className="text-sm text-green-600 font-medium">
-              ✓ Connecté au SEAO
-            </span>
-          )}
-        </div>
-      </form>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Connexion en cours...
+              </>
+            ) : (
+              <>
+                <LogIn className="w-4 h-4 mr-2" />
+                Se connecter
+              </>
+            )}
+          </button>
+        </form>
+      )}
     </div>
   );
 };

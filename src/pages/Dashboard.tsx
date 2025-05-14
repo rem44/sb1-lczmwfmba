@@ -1,175 +1,57 @@
-import React, { useState } from 'react';
-import TabNavigation from '../components/TabNavigation';
+import React, { useState, useEffect } from 'react';
 import ConnectionForm from '../components/ConnectionForm';
-import OperationStatus, { StatusStep } from '../components/OperationStatus';
-import DocumentStats from '../components/DocumentStats';
-import DocumentsTable, { Document } from '../components/DocumentsTable';
-import { runPythonScript } from '../utils/pythonIntegration';
+import DownloadManager from '../components/DownloadManager';
+import { api } from '../services/api';
 
 const Dashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'downloader' | 'analyzer'>('downloader');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [progress, setProgress] = useState(10);
-  const [error, setError] = useState<string | null>(null);
-  const [statusSteps, setStatusSteps] = useState<StatusStep[]>([
-    {
-      id: '1',
-      text: 'Système prêt. En attente de connexion...',
-      status: 'success',
-    },
-    {
-      id: '2',
-      text: 'Connexion au SEAO...',
-      status: 'waiting',
-    },
-    {
-      id: '3',
-      text: 'Authentification avec l\'identifiant:',
-      status: 'waiting',
-      details: 'shawn.daley@venturecarpets.com',
-    },
-    {
-      id: '4',
-      text: 'Téléchargement des documents',
-      status: 'waiting',
-    }
-  ]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  const [documents, setDocuments] = useState<Document[]>([]);
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
 
-  const handleLogin = async (credentials: { email: string; password: string }) => {
-    setError(null);
-    setIsLoading(true);
-    updateStatus('2', 'loading');
-    
-    try {
-      await runPythonScript(credentials);
-      
-      updateStatus('2', 'success');
-      updateStatus('3', 'loading');
-      setProgress(25);
-      
-      setTimeout(() => {
-        updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials.email}`);
-        setIsLoading(false);
-        setIsConnected(true);
-        setProgress(50);
-      }, 1500);
-    } catch (err) {
-      setIsLoading(false);
-      const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
-      setError(errorMessage);
-      
-      statusSteps.forEach((step) => {
-        if (step.status === 'loading') {
-          updateStatus(step.id, 'error');
-        }
-      });
-    }
+  const checkAuthentication = async () => {
+    const isValid = await api.checkSession();
+    setIsAuthenticated(isValid);
+    setIsCheckingAuth(false);
   };
 
-  const handleStartScraping = async () => {
-    setIsLoading(true);
-    updateStatus('4', 'loading');
-    setProgress(60);
-
-    try {
-      // Simulate download process
-      setTimeout(() => {
-        updateStatus('4', 'success');
-        setProgress(100);
-        setIsLoading(false);
-      }, 3000);
-    } catch (err) {
-      setIsLoading(false);
-      const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
-      setError(errorMessage);
-      updateStatus('4', 'error');
-    }
+  const handleLoginSuccess = (token: string) => {
+    localStorage.setItem('seao_token', token);
+    setIsAuthenticated(true);
   };
-  
-  const updateStatus = (id: string, status: StatusStep['status'], details?: string) => {
-    setStatusSteps(prevSteps => 
-      prevSteps.map(step => 
-        step.id === id 
-          ? { ...step, status, ...(details ? { details } : {}) } 
-          : step
-      )
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
     );
-  };
-
-  const handleViewDocument = (doc: Document) => {
-    console.log('Viewing document:', doc);
-  };
-
-  const handleDownloadDocument = (doc: Document) => {
-    console.log('Downloading document:', doc);
-  };
-
-  const handleDeleteDocument = (doc: Document) => {
-    console.log('Deleting document:', doc);
-  };
+  }
 
   return (
-    <div>
-      <TabNavigation 
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
-      
-      {activeTab === 'downloader' && (
-        <div>
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      {!isAuthenticated ? (
+        <ConnectionForm onLoginSuccess={handleLoginSuccess} />
+      ) : (
+        <div className="space-y-6">
+          <div className="bg-green-50 border-l-4 border-green-400 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-green-700">
+                  Connecté au SEAO
+                </p>
               </div>
             </div>
-          )}
-          
-          <ConnectionForm 
-            onLogin={handleLogin}
-            onStartScraping={handleStartScraping}
-            isLoading={isLoading}
-            isConnected={isConnected}
-          />
-          
-          <OperationStatus 
-            steps={statusSteps}
-            progress={progress}
-          />
-          
-          <DocumentStats 
-            totalTenders={0}
-            totalDocuments={0}
-            totalSize="0 Mo"
-            downloadPath="/telecharges/"
-          />
-          
-          <DocumentsTable 
-            documents={documents}
-            onViewDocument={handleViewDocument}
-            onDownloadDocument={handleDownloadDocument}
-            onDeleteDocument={handleDeleteDocument}
-          />
-        </div>
-      )}
-      
-      {activeTab === 'analyzer' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600">
-            Cette fonctionnalité sera disponible prochainement. Elle permettra d'analyser les
-            documents téléchargés à l'aide de l'API OpenAI pour extraire des informations
-            stratégiques.
-          </p>
+          </div>
+
+          <DownloadManager />
         </div>
       )}
     </div>
