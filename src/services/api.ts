@@ -1,5 +1,5 @@
 // src/services/api.ts
-import config from '../utils/config';
+import { API_BASE_URL } from '../utils/config';
 
 interface ApiResponse {
   success: boolean;
@@ -45,7 +45,7 @@ const API = {
     };
 
     try {
-      const response = await fetch(`${config.API_BASE_URL}${endpoint}`, fullOptions);
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, fullOptions);
       
       // Vérifier si le serveur est accessible
       if (!response.ok) {
@@ -74,7 +74,7 @@ const API = {
   // Vérifier si le serveur est accessible
   async checkServerStatus(): Promise<boolean> {
     try {
-      const response = await fetch(`${config.API_BASE_URL}/healthcheck`);
+      const response = await fetch(`${API_BASE_URL}/healthcheck`);
       return response.ok;
     } catch (error) {
       console.error('Erreur lors de la vérification du statut du serveur', error);
@@ -125,7 +125,7 @@ const API = {
   
   // Obtenir l'URL de téléchargement du ZIP
   getDownloadUrl(downloadId: string): string {
-    return `${config.API_BASE_URL}/download/files?download_id=${downloadId}`;
+    return `${API_BASE_URL}/download/files?download_id=${downloadId}`;
   }
 };
 
