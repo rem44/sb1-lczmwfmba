@@ -36,9 +36,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
-                isConnected ? 'bg-gray-50' : ''
-              }`}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
               disabled={isConnected}
             />
@@ -52,21 +50,18 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 ${
-                isConnected ? 'bg-gray-50' : ''
-              }`}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
               disabled={isConnected}
             />
           </div>
         </div>
-        
-        {!isConnected ? (
-          <div>
+        <div className="flex justify-between items-center">
+          {!isConnected ? (
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
                 isLoading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
@@ -76,19 +71,12 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               )}
             </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center bg-green-50 text-green-700 px-4 py-2 rounded-md">
-              <span className="text-lg">✓</span>
-              <span className="ml-2 font-medium">Connecté au SEAO</span>
-            </div>
-            
+          ) : (
             <button
               type="button"
               onClick={onStartScraping}
               disabled={isLoading}
-              className={`w-full inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
                 isLoading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
@@ -98,8 +86,14 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
                 <span className="ml-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
               )}
             </button>
-          </div>
-        )}
+          )}
+          
+          {isConnected && (
+            <span className="text-sm text-green-600 font-medium">
+              ✓ Connecté au SEAO
+            </span>
+          )}
+        </div>
       </form>
     </div>
   );
