@@ -4,6 +4,7 @@ import ConnectionForm from '../components/ConnectionForm';
 import OperationStatus, { StatusStep } from '../components/OperationStatus';
 import DocumentStats from '../components/DocumentStats';
 import DocumentsTable, { Document } from '../components/DocumentsTable';
+import PDFAnalyzer from '../components/PDFAnalyzer';
 import { runPythonScript } from '../utils/pythonIntegration';
 
 const Dashboard: React.FC = () => {
@@ -75,7 +76,6 @@ const Dashboard: React.FC = () => {
     setProgress(60);
 
     try {
-      // Simulate download process
       setTimeout(() => {
         updateStatus('4', 'success');
         setProgress(100);
@@ -163,15 +163,7 @@ const Dashboard: React.FC = () => {
         </div>
       )}
       
-      {activeTab === 'analyzer' && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-600">
-            Cette fonctionnalité sera disponible prochainement. Elle permettra d'analyser les
-            documents téléchargés à l'aide de l'API OpenAI pour extraire des informations
-            stratégiques.
-          </p>
-        </div>
-      )}
+      {activeTab === 'analyzer' && <PDFAnalyzer />}
     </div>
   );
 };
