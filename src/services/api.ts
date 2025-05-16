@@ -51,7 +51,7 @@ class ApiService {
 
   async login(email: string, password: string) {
     try {
-      const response = await fetch(API_CONFIG.getUrl(AUTH_ENDPOINTS.login), {
+      const response = await fetch(API_CONFIG.getUrl(API_ENDPOINTS.login), {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ email, password })
@@ -72,7 +72,7 @@ class ApiService {
 
   async verifySecurityCode(code: string, sessionId: string) {
     try {
-      const response = await fetch(API_CONFIG.getUrl(AUTH_ENDPOINTS.verify), {
+      const response = await fetch(API_CONFIG.getUrl(API_ENDPOINTS.verify), {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ code, sessionId })
@@ -93,7 +93,7 @@ class ApiService {
 
   async checkServerStatus() {
     try {
-      const response = await fetch(API_CONFIG.getUrl(AUTH_ENDPOINTS.status), {
+      const response = await fetch(API_CONFIG.getUrl(API_ENDPOINTS.status), {
         headers: this.getHeaders()
       });
       return response.ok;
