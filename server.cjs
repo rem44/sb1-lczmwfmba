@@ -16,7 +16,7 @@ app.use((req, res, next) => {
 // Configuration CORS pour Railway et développement local
 app.use(cors({
   origin: [
-    'https://seao-scraper-production.up.railway.app',
+    'super-scraper-production.up.railway.app',
     'http://localhost:5173',
     'http://localhost:3001'
   ],
