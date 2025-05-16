@@ -1,132 +1,154 @@
-// src/services/api.ts
-import { API_BASE_URL } from '../utils/config';
+import { API_CONFIG, AUTH_ENDPOINTS, SEAO_ENDPOINTS } from '../utils/config';
 
-interface ApiResponse {
-  success: boolean;
-  message?: string;
-  [key: string]: any;
-}
+class ApiService {
+  private static instance: ApiService;
+  private token: string | null = null;
 
-interface LoginResponse extends ApiResponse {
-  session_id?: string;
-  requires_security_code?: boolean;
-}
+  private constructor() {
+    // Load token from storage if exists
+    this.token = localStorage.getItem('seao_token');
+  }
 
-interface DownloadStartResponse extends ApiResponse {
-  task_id?: string;
-}
-
-interface DownloadStatusResponse extends ApiResponse {
-  task?: {
-    id: string;
-    status: 'initializing' | 'running' | 'completed' | 'failed';
-    progress: number;
-    message: string;
-    result?: {
-      download_id: string;
-      [key: string]: any;
-    };
-  };
-}
-
-const API = {
-  // Méthode générique pour les appels avec gestion des erreurs
-  async fetchWithAuth(endpoint: string, options: RequestInit = {}): Promise<any> {
-    const sessionId = localStorage.getItem('sessionId');
-    
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    };
-
-    const fullOptions: RequestInit = {
-      ...options,
-      headers
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, fullOptions);
-      
-      // Vérifier si le serveur est accessible
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Rediriger vers la page de connexion si la session a expiré
-          localStorage.removeItem('sessionId');
-          window.location.href = '/login';
-          throw new Error('Session expirée. Veuillez vous reconnecter.');
-        }
-        
-        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.message === 'Failed to fetch') {
-          throw new Error('Le serveur n\'est pas accessible. Veuillez vérifier que le serveur est démarré.');
-        }
-        throw error;
-      }
-      throw new Error('Une erreur inconnue est survenue');
+  static getInstance(): ApiService {
+    if (!ApiService.instance) {
+      ApiService.instance = new ApiService();
     }
-  },
-  
-  // Vérifier si le serveur est accessible
-  async checkServerStatus(): Promise<boolean> {
+    return ApiService.instance;
+  }
+
+  private getHeaders(): HeadersInit {
+    const headers = { ...API_CONFIG.headers };
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+    return headers;
+  }
+
+  private async handleResponse(response: Response) {
+    const data = await response.json();
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Clear token and trigger re-authentication
+        this.clearToken();
+        throw new Error('Session expirée. Veuillez vous reconnecter.');
+      }
+      throw new Error(data.message || 'Une erreur est survenue');
+    }
+    
+    return data;
+  }
+
+  private setToken(token: string) {
+    this.token = token;
+    localStorage.setItem('seao_token', token);
+  }
+
+  private clearToken() {
+    this.token = null;
+    localStorage.removeItem('seao_token');
+  }
+
+  async login(email: string, password: string) {
     try {
-      const response = await fetch(`${API_BASE_URL}/healthcheck`);
+      const response = await fetch(API_CONFIG.getUrl(AUTH_ENDPOINTS.login), {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await this.handleResponse(response);
+      
+      if (data.token) {
+        this.setToken(data.token);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  }
+
+  async verifySecurityCode(code: string, sessionId: string) {
+    try {
+      const response = await fetch(API_CONFIG.getUrl(AUTH_ENDPOINTS.verify), {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ code, sessionId })
+      });
+
+      const data = await this.handleResponse(response);
+      
+      if (data.token) {
+        this.setToken(data.token);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Security code verification error:', error);
+      throw error;
+    }
+  }
+
+  async checkServerStatus() {
+    try {
+      const response = await fetch(API_CONFIG.getUrl(AUTH_ENDPOINTS.status), {
+        headers: this.getHeaders()
+      });
       return response.ok;
     } catch (error) {
-      console.error('Erreur lors de la vérification du statut du serveur', error);
+      console.error('Server status check error:', error);
       return false;
     }
-  },
-  
-  // Authentification
-  async login(email: string, password: string): Promise<LoginResponse> {
-    return this.fetchWithAuth('/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-  },
-  
-  // Soumettre le code de sécurité
-  async submitSecurityCode(securityCode: string, sessionId: string): Promise<LoginResponse> {
-    return this.fetchWithAuth('/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ security_code: securityCode, session_id: sessionId })
-    });
-  },
-  
-  // Vérifier si la session est valide
-  async checkSession(sessionId: string): Promise<ApiResponse> {
-    return this.fetchWithAuth('/auth/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId })
-    });
-  },
-  
-  // Démarrer un téléchargement
-  async startDownload(sessionId: string, options: Record<string, any> = {}): Promise<DownloadStartResponse> {
-    return this.fetchWithAuth('/download/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, options })
-    });
-  },
-  
-  // Vérifier l'état d'un téléchargement
-  async checkDownloadStatus(taskId: string): Promise<DownloadStatusResponse> {
-    return this.fetchWithAuth(`/download/status?task_id=${taskId}`);
-  },
-  
-  // Obtenir l'URL de téléchargement du ZIP
-  getDownloadUrl(downloadId: string): string {
-    return `${API_BASE_URL}/download/files?download_id=${downloadId}`;
   }
-};
 
-export default API;
+  async startDownload(options = {}) {
+    try {
+      const response = await fetch(API_CONFIG.getUrl(SEAO_ENDPOINTS.download), {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(options)
+      });
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Download start error:', error);
+      throw error;
+    }
+  }
+
+  async checkDownloadStatus(taskId: string) {
+    try {
+      const response = await fetch(API_CONFIG.getUrl(`${SEAO_ENDPOINTS.status}/${taskId}`), {
+        headers: this.getHeaders()
+      });
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('Download status check error:', error);
+      throw error;
+    }
+  }
+
+  async analyzePDF(files: File[]) {
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+
+      const response = await fetch(API_CONFIG.getUrl(SEAO_ENDPOINTS.analyze), {
+        method: 'POST',
+        headers: {
+          ...this.getHeaders(),
+          // Remove Content-Type for FormData
+          'Content-Type': undefined
+        },
+        body: formData
+      });
+      return await this.handleResponse(response);
+    } catch (error) {
+      console.error('PDF analysis error:', error);
+      throw error;
+    }
+  }
+}
+
+export const api = ApiService.getInstance();
