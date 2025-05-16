@@ -18,7 +18,7 @@ app.use(cors({
   origin: [
     'super-scraper-production.up.railway.app',
     'http://localhost:5173',
-    'http://localhost:3001'
+    'http://localhost:5000'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
