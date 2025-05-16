@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './config';
+import { API_CONFIG } from './config';
 
 interface Credentials {
   email: string;
@@ -19,14 +19,14 @@ export async function runPythonScript(credentials: Credentials): Promise<string>
     }
 
     // Vérification de la disponibilité de l'API
-    const healthCheck = await fetch(`${API_BASE_URL}/health`).catch(() => null);
+    const healthCheck = await fetch(`${API_CONFIG.getUrl('/health')}`).catch(() => null);
     if (!healthCheck?.ok) {
       throw new Error("Le serveur n'est pas accessible. Veuillez vérifier que le serveur est démarré.");
     }
 
-    const response = await fetch(`${API_BASE_URL}/scraper/start`, {
+    const response = await fetch(API_CONFIG.getUrl('/scraper/start'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: API_CONFIG.headers,
       body: JSON.stringify({
         username: credentials.email.trim(),
         password: credentials.password.trim()
@@ -50,9 +50,9 @@ export async function runPythonScript(credentials: Credentials): Promise<string>
 
 export async function checkScriptStatus(): Promise<ScriptStatus> {
   try {
-    const response = await fetch(`${API_BASE_URL}/scraper/status`, {
+    const response = await fetch(API_CONFIG.getUrl('/scraper/status'), {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: API_CONFIG.headers
     });
     
     if (!response.ok) {
