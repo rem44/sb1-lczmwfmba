@@ -1,5 +1,5 @@
 // API configuration - Optimisé pour Vite
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://super-scraper-production.up.railway.app';
 
 // Configuration API unifiée
 export const API_CONFIG = {
@@ -22,14 +22,13 @@ export const API_CONFIG = {
 };
 
 // Fonction pour vérifier si l'API est accessible
-// Utilise maintenant l'endpoint /status qui existe déjà sur votre backend
 export async function checkApiHealth(): Promise<boolean> {
   try {
-    // Utiliser /status comme endpoint de health check
-    const statusUrl = API_CONFIG.getUrl('/status');
-    console.log('Tentative de connexion à:', statusUrl);
+    // Utiliser l'endpoint health correct
+    const healthUrl = API_CONFIG.getUrl('/api/health');
+    console.log('Tentative de connexion à:', healthUrl);
     
-    const response = await fetch(statusUrl, {
+    const response = await fetch(healthUrl, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -44,7 +43,7 @@ export async function checkApiHealth(): Promise<boolean> {
     const data = await response.json();
     console.log('Données reçues:', data);
     // On considère que si on reçoit une réponse, le service est up
-    return true;
+    return data.status === "ok";
   } catch (error) {
     console.error('Erreur lors de la vérification:', error);
     return false;
@@ -56,18 +55,17 @@ export async function startScrapingJob(username: string, password: string, searc
   try {
     console.log('Démarrage d\'un job de scraping pour:', username);
     
-    // Utiliser directement l'endpoint /start de votre API Railway
-    const startUrl = API_CONFIG.getUrl('/start');
-    console.log('URL d\'appel:', startUrl);
+    // Utiliser le bon endpoint pour démarrer un job
+    const scraperUrl = API_CONFIG.getUrl('/api/scraper');
+    console.log('URL d\'appel:', scraperUrl);
     
-    const response = await fetch(startUrl, {
+    const response = await fetch(scraperUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      // Adapter les paramètres pour correspondre à ce qu'attend votre API
       body: JSON.stringify({ 
-        email: username, 
-        password: password 
-        // Retirer searchTerms qui n'est peut-être pas supporté par votre API
+        username: username, 
+        password: password
+        // searchTerms peut être ajouté si votre backend le supporte
       })
     });
     
@@ -94,12 +92,12 @@ export async function startScrapingJobAlt(username: string, password: string, se
 }
 
 // Fonction pour vérifier le statut d'un job
-export async function checkJobStatus(): Promise<any> {
+export async function checkJobStatus(jobId: string): Promise<any> {
   try {
-    console.log('Vérification du statut du job');
+    console.log('Vérification du statut du job:', jobId);
     
-    // Utiliser l'endpoint /status de votre API Railway
-    const statusUrl = API_CONFIG.getUrl('/status');
+    // Utiliser l'endpoint de statut correct avec l'ID du job
+    const statusUrl = API_CONFIG.getUrl(`/api/scraper/status/${jobId}`);
     console.log('URL d\'appel:', statusUrl);
     
     const response = await fetch(statusUrl, {
