@@ -1,4 +1,4 @@
-import { API_CONFIG, AUTH_ENDPOINTS, SEAO_ENDPOINTS } from '../utils/config';
+import { API_CONFIG, API_ENDPOINTS } from '../utils/api-config';
 
 class ApiService {
   private static instance: ApiService;
