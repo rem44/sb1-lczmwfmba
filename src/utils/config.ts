@@ -1,6 +1,6 @@
 // API configuration
 export const API_CONFIG = {
-  baseUrl: import.meta.env.VITE_API_BASE_URL ||
+  baseUrl: import.meta.env.VITE_API_BASE_URL;
   
   // Helper method to build API URLs
   getUrl: (endpoint: string): string => {
