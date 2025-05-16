@@ -1,4 +1,4 @@
-import { API_CONFIG } from './config';
+import { API_CONFIG, API_ENDPOINTS } from './api-config';
 
 interface Credentials {
   email: string;
@@ -19,12 +19,13 @@ export async function runPythonScript(credentials: Credentials): Promise<string>
     }
 
     // Vérification de la disponibilité de l'API
-    const healthCheck = await fetch(`${API_CONFIG.getUrl('/health')}`).catch(() => null);
+    const healthCheck = await fetch(API_CONFIG.getUrl(API_ENDPOINTS.health)).catch(() => null);
     if (!healthCheck?.ok) {
       throw new Error("Le serveur n'est pas accessible. Veuillez vérifier que le serveur est démarré.");
     }
 
-    const response = await fetch(API_CONFIG.getUrl('/scraper/start'), {
+    // CORRECTION: Utiliser le bon endpoint
+    const response = await fetch(API_CONFIG.getUrl(API_ENDPOINTS.scraper), {
       method: 'POST',
       headers: API_CONFIG.headers,
       body: JSON.stringify({
@@ -48,9 +49,10 @@ export async function runPythonScript(credentials: Credentials): Promise<string>
   }
 }
 
-export async function checkScriptStatus(): Promise<ScriptStatus> {
+export async function checkScriptStatus(jobId: string): Promise<ScriptStatus> {
   try {
-    const response = await fetch(API_CONFIG.getUrl('/scraper/status'), {
+    // CORRECTION: Utiliser le bon endpoint avec l'ID
+    const response = await fetch(API_CONFIG.getUrl(API_ENDPOINTS.scraperStatus(jobId)), {
       method: 'GET',
       headers: API_CONFIG.headers
     });
