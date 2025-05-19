@@ -1,6 +1,5 @@
-// src/components/SecurityCodeForm.tsx
 import React, { useState, useEffect } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, Mail, AlertCircle } from 'lucide-react';
 
 interface SecurityCodeFormProps {
   onSubmit: (code: string) => void;
@@ -14,15 +13,21 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
   isLoading = false
 }) => {
   const [code, setCode] = useState('');
-  // Add focus management to improve user experience
   const [isFocused, setIsFocused] = useState(false);
+  const [showEmailInfo, setShowEmailInfo] = useState(true);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // Auto-focus the input field when the component mounts
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
+
+    // Hide email info after 10 seconds
+    const timer = setTimeout(() => {
+      setShowEmailInfo(false);
+    }, 10000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -32,89 +37,115 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
     }
   };
 
-  // Format the code input to improve readability
   const formatCodeDisplay = (code: string) => {
     if (code.length <= 3) return code;
     return `${code.substring(0, 3)} ${code.substring(3)}`;
   };
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 my-4 animate-fadeIn">
-      <div className="flex items-center mb-4">
+    <div className="bg-white border border-gray-200 rounded-lg p-6 my-4 shadow-lg animate-fadeIn">
+      {showEmailInfo && (
+        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+          <div className="flex">
+            <Mail className="h-6 w-6 text-blue-600" />
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                Un code de sécurité a été envoyé à votre adresse email.
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                Veuillez vérifier votre boîte de réception et vos spams.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center mb-6">
         <div className="bg-blue-100 rounded-full p-2 mr-3">
           <KeyRound className="h-6 w-6 text-blue-600" />
         </div>
         <div>
-          <h3 className="text-lg font-medium text-blue-900">Code de sécurité requis</h3>
-          <p className="text-sm text-blue-600">
-            Veuillez entrer le code reçu par courriel
+          <h3 className="text-lg font-medium text-gray-900">Code de sécurité requis</h3>
+          <p className="text-sm text-gray-600">
+            Saisissez le code à 6 chiffres reçu par email
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="securityCode" className="block text-sm font-medium text-blue-700 mb-2">
-            Code de sécurité à 6 chiffres
-          </label>
-          
-          <input
-            ref={inputRef}
-            id="securityCode"
-            type="text"
-            value={formatCodeDisplay(code)}
-            onChange={(e) => {
-              // Allow only digits and limit to 6 characters
-              const cleanValue = e.target.value.replace(/\D/g, '').slice(0, 6);
-              setCode(cleanValue);
-            }}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            className={`block w-full px-4 py-3 text-center tracking-wider text-lg border ${
-              isFocused ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-300'
-            } rounded-md focus:outline-none transition-all`}
-            maxLength={7} // Allow for space in the formatted display
-            pattern="[0-9]*"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            required
-            placeholder="123456"
-          />
-        </div>
-
-        <div className="flex space-x-3">
-          <button
-            type="submit"
-            disabled={isLoading || code.length !== 6}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Vérification...
-              </span>
-            ) : (
-              'Valider'
+          <div className="relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={formatCodeDisplay(code)}
+              onChange={(e) => {
+                const cleanValue = e.target.value.replace(/\D/g, '').slice(0, 6);
+                setCode(cleanValue);
+              }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              className={`block w-full px-4 py-3 text-center tracking-wider text-2xl border ${
+                isFocused ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-300'
+              } rounded-md focus:outline-none transition-all bg-gray-50`}
+              maxLength={7}
+              pattern="[0-9]*"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              required
+              placeholder="• • • • • •"
+            />
+            {code.length > 0 && code.length < 6 && (
+              <div className="absolute -bottom-6 left-0 flex items-center text-amber-600 text-xs">
+                <AlertCircle size={12} className="mr-1" />
+                Veuillez saisir les {6 - code.length} chiffres restants
+              </div>
             )}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-          >
-            Annuler
-          </button>
+          </div>
+
+          <div className="flex items-center justify-between mt-8">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading || code.length !== 6}
+              className={`inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                code.length === 6 ? 'animate-pulse' : ''
+              }`}
+            >
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Vérification...
+                </>
+              ) : (
+                'Valider'
+              )}
+            </button>
+          </div>
         </div>
       </form>
 
-      <div className="mt-4 text-sm text-gray-500">
-        <p>
-          Si vous n'avez pas reçu le code, vérifiez votre dossier de courrier indésirable ou
-          contactez le support SEAO.
-        </p>
+      <div className="mt-6 border-t border-gray-200 pt-4">
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            <Mail className="h-5 w-5 text-gray-400" />
+          </div>
+          <div className="ml-3 text-sm text-gray-500">
+            <p>
+              Si vous n'avez pas reçu le code, vérifiez votre dossier de courrier indésirable ou
+              contactez le support SEAO.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
