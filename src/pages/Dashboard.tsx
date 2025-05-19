@@ -1,3 +1,4 @@
+// src/pages/Dashboard.tsx
 import React, { useState } from 'react';
 import TabNavigation from '../components/TabNavigation';
 import ConnectionForm from '../components/ConnectionForm';
@@ -5,7 +6,7 @@ import OperationStatus, { StatusStep } from '../components/OperationStatus';
 import DocumentStats from '../components/DocumentStats';
 import DocumentsTable, { Document } from '../components/DocumentsTable';
 import PDFAnalyzer from '../components/PDFAnalyzer';
-import { runPythonScript } from '../utils/pythonIntegration';
+import { api } from '../services/api'; // Import the API service
 
 const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'downloader' | 'analyzer'>('downloader');
@@ -13,6 +14,7 @@ const Dashboard: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [progress, setProgress] = useState(10);
   const [error, setError] = useState<string | null>(null);
+  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
   const [statusSteps, setStatusSteps] = useState<StatusStep[]>([
     {
       id: '1',
@@ -39,20 +41,23 @@ const Dashboard: React.FC = () => {
 
   const [documents, setDocuments] = useState<Document[]>([]);
 
-  const handleLogin = async (credentials: { email: string; password: string }) => {
+  const handleLogin = async (creds: { email: string; password: string }) => {
     setError(null);
     setIsLoading(true);
     updateStatus('2', 'loading');
     
+    // Save credentials for later use with scraping
+    setCredentials(creds);
+    
     try {
-      await runPythonScript(credentials);
-      
+      // For test purposes, we'll just simulate a successful login
+      // In a real app, you'd want to verify these credentials with your backend
       updateStatus('2', 'success');
       updateStatus('3', 'loading');
       setProgress(25);
       
       setTimeout(() => {
-        updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials.email}`);
+        updateStatus('3', 'success', `Connexion avec l'identifiant: ${creds.email}`);
         setIsLoading(false);
         setIsConnected(true);
         setProgress(50);
@@ -70,17 +75,23 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleStartScraping = async () => {
+  const handleStartScraping = async (creds: { email: string; password: string }) => {
     setIsLoading(true);
     updateStatus('4', 'loading');
     setProgress(60);
 
     try {
-      setTimeout(() => {
-        updateStatus('4', 'success');
-        setProgress(100);
-        setIsLoading(false);
-      }, 3000);
+      // Use the stored credentials or the ones passed from the form
+      const credsToUse = credentials || creds;
+      
+      // Make the API call to start the download with credentials
+      const result = await api.startDownload(credsToUse);
+      
+      console.log("Download started:", result);
+      
+      updateStatus('4', 'success');
+      setProgress(100);
+      setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
       const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
@@ -97,6 +108,22 @@ const Dashboard: React.FC = () => {
           : step
       )
     );
+  };
+
+  const testBackendConnection = async () => {
+    if (!credentials) return;
+    
+    try {
+      const testUrl = `${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL}/api/health`;
+      const response = await fetch(testUrl);
+      
+      const data = await response.json();
+      console.log('Backend connection test:', data);
+      alert('Test connection successful. Check console for details.');
+    } catch (error) {
+      console.error('Backend connection failed:', error);
+      alert('Test connection failed. Check console for details.');
+    }
   };
 
   const handleViewDocument = (doc: Document) => {
@@ -160,6 +187,16 @@ const Dashboard: React.FC = () => {
             onDownloadDocument={handleDownloadDocument}
             onDeleteDocument={handleDeleteDocument}
           />
+
+          <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+            <h3 className="text-md font-medium text-gray-800 mb-2">Diagnostics</h3>
+            <button 
+              onClick={testBackendConnection}
+              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+            >
+              Test Backend Connection
+            </button>
+          </div>
         </div>
       )}
       
