@@ -316,12 +316,11 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // For development testing only
   const testSecurityCodeForm = () => {
-    setRequiresSecurityCode(true);
-    setTempSessionId("test-session-id");
-    setTempJobId("test-job-id");
-  };
+  setRequiresSecurityCode(true);
+  setTempSessionId("test-session-id");
+  setTempJobId("test-job-id");
+};
 
   // Debug logs
   console.log("Security code required:", requiresSecurityCode);
