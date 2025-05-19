@@ -158,12 +158,31 @@ const Dashboard: React.FC = () => {
       const response = await login(creds.username, creds.password);
       console.log("Login response:", response);
       
-      if (response.requiresSecurityCode || response.requires_security_code) {
-        // Security code is required
-        const sessionId = response.sessionId || response.session_id;
-        const jobId = response.jobId;
+      // Important: Vérifier clairement si un code de sécurité est requis
+      console.log("Response requires security code check:", {
+        requiresSecurityCode: response.requiresSecurityCode,
+        requires_security_code: response.requires_security_code,
+        auth_result: response.auth_result
+      });
+      
+      // *** PARTIE IMPORTANTE - VÉRIFIER SI UN CODE DE SÉCURITÉ EST REQUIS ***
+      if (
+        response.requiresSecurityCode === true || 
+        response.requires_security_code === true ||
+        (response.auth_result && response.auth_result.requires_security_code === true)
+      ) {
+        // Un code de sécurité est nécessaire
+        // Rechercher le session ID dans tous les formats possibles de réponse
+        const sessionId = response.sessionId || response.session_id || 
+                         (response.auth_result && response.auth_result.session_id) || null;
+        const jobId = response.jobId || response.job_id || 
+                     (response.auth_result && response.auth_result.job_id) || null;
         
-        console.log("Security code required, session ID:", sessionId);
+        if (!sessionId) {
+          throw new Error("Session ID manquant dans la réponse d'authentification");
+        }
+        
+        console.log("Security code required, session ID:", sessionId, "Job ID:", jobId);
         setRequiresSecurityCode(true);
         setTempSessionId(sessionId);
         setTempJobId(jobId);
@@ -187,6 +206,7 @@ const Dashboard: React.FC = () => {
       const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
       setError(errorMessage);
       
+      // Mettre à jour le statut des étapes en erreur
       statusSteps.forEach((step) => {
         if (step.status === 'loading') {
           updateStatus(step.id, 'error');
@@ -208,12 +228,18 @@ const Dashboard: React.FC = () => {
     
     try {
       console.log("Submitting security code for session:", tempSessionId, "Job ID:", tempJobId);
-      const response = await submitSecurityCode(code, tempSessionId, tempJobId || undefined);
+      
+      // Nettoyer le code (supprimer espaces et caractères non-numériques)
+      const cleanCode = code.replace(/\D/g, '');
+      console.log(`Using cleaned security code: ${cleanCode.substring(0, 1)}${'*'.repeat(cleanCode.length - 1)}`);
+      
+      const response = await submitSecurityCode(cleanCode, tempSessionId, tempJobId || undefined);
       console.log("Security code response:", response);
       
       if (response.success) {
         setRequiresSecurityCode(false);
         setTempSessionId(null);
+        setTempJobId(null);
         setIsConnected(true);
         updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials?.username}`);
         setProgress(50);
