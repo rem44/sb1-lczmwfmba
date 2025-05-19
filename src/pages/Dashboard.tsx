@@ -17,7 +17,7 @@ const Dashboard: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [progress, setProgress] = useState(10);
   const [error, setError] = useState<string | null>(null);
-  const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
   const [requiresSecurityCode, setRequiresSecurityCode] = useState(false);
   const [tempSessionId, setTempSessionId] = useState<string | null>(null);
   const [tempJobId, setTempJobId] = useState<string | null>(null);
@@ -125,19 +125,19 @@ const Dashboard: React.FC = () => {
     };
   }, [taskId, isLoading]);
 
-  const handleLogin = async (creds: { email: string; password: string }) => {
+  const handleLogin = async (creds: { username: string; password: string }) => {
     setError(null);
     setIsLoading(true);
     updateStatus('2', 'loading');
-    updateStatus('3', 'waiting', `Authentification avec l'identifiant: ${creds.email}`);
+    updateStatus('3', 'waiting', `Authentification avec l'identifiant: ${creds.username}`);
     
     // Save credentials for later use with scraping
     setCredentials(creds);
     
     try {
-      console.log("Attempting login with:", creds.email);
+      console.log("Attempting login with:", creds.username);
       // Use the auth context login function
-      const response = await login(creds.email, creds.password);
+      const response = await login(creds.username, creds.password);
       console.log("Login response:", response);
       
       if (response.requiresSecurityCode) {
@@ -152,7 +152,7 @@ const Dashboard: React.FC = () => {
         // Authentication successful
         console.log("Login successful");
         updateStatus('2', 'success');
-        updateStatus('3', 'success', `Connexion avec l'identifiant: ${creds.email}`);
+        updateStatus('3', 'success', `Connexion avec l'identifiant: ${creds.username}`);
         setIsConnected(true);
         setProgress(50);
       } else {
@@ -194,7 +194,7 @@ const Dashboard: React.FC = () => {
         setRequiresSecurityCode(false);
         setTempSessionId(null);
         setIsConnected(true);
-        updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials?.email}`);
+        updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials?.username}`);
         setProgress(50);
       } else {
         throw new Error(response.message || 'Code de sécurité invalide');
@@ -217,7 +217,7 @@ const Dashboard: React.FC = () => {
     updateStatus('2', 'waiting');
   };
 
-  const handleStartScraping = async (creds: { email: string; password: string }) => {
+  const handleStartScraping = async (creds: { username: string; password: string }) => {
     setIsLoading(true);
     updateStatus('4', 'loading');
     setProgress(60);
@@ -228,7 +228,7 @@ const Dashboard: React.FC = () => {
       const credsToUse = credentials || creds;
       
       // Make the API call to start the download with credentials
-      console.log("Starting download with credentials:", credsToUse.email);
+      console.log("Starting download with credentials:", credsToUse.username);
       const result = await api.startDownload(credsToUse);
       
       console.log("Download started:", result);
