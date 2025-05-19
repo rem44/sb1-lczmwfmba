@@ -78,6 +78,12 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
             autoComplete="one-time-code"
             placeholder="Entrez le code à 6 chiffres"
           />
+          {code.length > 0 && code.length < 6 && (
+            <p className="text-sm text-amber-600 mt-1">Veuillez saisir tous les 6 chiffres</p>
+          )}
+          {isLoading && (
+            <p className="text-sm text-blue-600 mt-1">Vérification en cours...</p>
+          )}
         </div>
 
         <div className="flex justify-between pt-2">
@@ -85,6 +91,7 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
             type="button"
             onClick={onCancel}
             className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={isLoading}
           >
             Annuler
           </button>
@@ -101,6 +108,9 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
       <div className="mt-6 pt-4 border-t border-gray-200 text-sm text-gray-600">
         <p>
           Si vous n'avez pas reçu le code, vérifiez votre dossier de courrier indésirable ou contactez le support SEAO.
+        </p>
+        <p className="mt-2 text-xs text-gray-500">
+          Pour le mode test, utilisez le code: 123456
         </p>
       </div>
     </div>
