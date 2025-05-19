@@ -5,11 +5,20 @@ import { api } from '../services/api';
 interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<any>;
-  submitSecurityCode: (code: string, sessionId: string) => Promise<any>;
+  submitSecurityCode: (code: string, sessionId: string, jobId?: string) => Promise<any>;
   logout: () => void;
   serverAvailable: boolean;
 }
 
+interface LoginResponse {
+  success: boolean;
+  requiresSecurityCode?: boolean;
+  sessionId?: string | null;
+  jobId?: string | null;
+  message?: string;
+}
+
+// Default context value
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   login: async () => ({ success: false }),
@@ -23,14 +32,30 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [serverAvailable, setServerAvailable] = useState(true);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const sessionValid = await api.checkSession();
-        setIsAuthenticated(sessionValid);
+        // Check for saved session
+        const savedSession = localStorage.getItem('auth_session_id');
+        
+        if (savedSession) {
+          // Attempt to validate the session by making a request
+          // If the backend had a specific endpoint for this, we'd use that instead
+          const sessionValid = await api.checkSession();
+          setIsAuthenticated(sessionValid);
+          if (sessionValid) {
+            setSessionToken(savedSession);
+          } else {
+            // Clear invalid session
+            localStorage.removeItem('auth_session_id');
+          }
+        }
+        
         setServerAvailable(true);
       } catch (error) {
+        console.error("Auth check error:", error);
         setServerAvailable(false);
       }
     };
@@ -38,35 +63,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<LoginResponse> => {
     try {
-      // Use the api.login function to authenticate
+      console.log("AuthContext: Attempting login with:", email);
       const response = await api.login(email, password);
+      console.log("AuthContext: Login response received:", response);
       
-      // Check if authentication was successful
-if (response) {
-  if (response.success || response.status === "success") {
-    setIsAuthenticated(true);
-    return {
-      success: true,
-      jobId: response.jobId,
-      requiresSecurityCode: false,
-      sessionId: response.session_id || null
-    };
-  } else if (response.auth_result?.requires_security_code || 
-             response.requires_security_code) {
-    return {
-      success: false,
-      requiresSecurityCode: true,
-      sessionId: response.auth_result?.session_id || response.session_id,
-      jobId: response.jobId
-    };
-  }
-}
+      // Case 1: Standard success response
+      if (response.success === true || response.status === "success") {
+        console.log("AuthContext: Login successful");
+        
+        // Save session ID if available
+        if (response.session_id) {
+          setSessionToken(response.session_id);
+          localStorage.setItem('auth_session_id', response.session_id);
+        }
+        
+        setIsAuthenticated(true);
+        
+        return {
+          success: true,
+          jobId: response.jobId,
+          sessionId: response.session_id
+        };
       }
       
-      // If authentication requires a security code
-      if (response && response.auth_result?.requires_security_code) {
+      // Case 2: Security code required from main response
+      if (response.requires_security_code) {
+        console.log("AuthContext: Security code required from main response");
+        return {
+          success: false,
+          requiresSecurityCode: true,
+          sessionId: response.session_id,
+          jobId: response.jobId
+        };
+      }
+      
+      // Case 3: Security code required nested in auth_result
+      if (response.auth_result && response.auth_result.requires_security_code) {
+        console.log("AuthContext: Security code required from auth_result");
         return {
           success: false,
           requiresSecurityCode: true,
@@ -75,11 +110,14 @@ if (response) {
         };
       }
       
+      // Case 4: Generic failure
+      console.log("AuthContext: Login failed with response:", response);
       return { 
-        success: false,
-        message: response.message || 'Authentication failed' 
+        success: false, 
+        message: response.message || response.error || 'Authentication failed' 
       };
     } catch (error) {
+      console.error("AuthContext: Login error:", error);
       return { 
         success: false, 
         message: error instanceof Error ? error.message : 'Error during login' 
@@ -87,16 +125,33 @@ if (response) {
     }
   };
 
-  const submitSecurityCode = async (code: string, sessionId: string) => {
+  const submitSecurityCode = async (code: string, sessionId: string, jobId?: string): Promise<LoginResponse> => {
     try {
-      const response = await api.submitSecurityCode(code, sessionId);
+      console.log("AuthContext: Submitting security code for session:", sessionId);
+      const response = await api.submitSecurityCode(code, sessionId, jobId);
+      console.log("AuthContext: Security code response:", response);
       
       if (response.success) {
+        // Save the session
+        if (response.session_id) {
+          setSessionToken(response.session_id);
+          localStorage.setItem('auth_session_id', response.session_id);
+        }
+        
         setIsAuthenticated(true);
+        
+        return {
+          success: true,
+          sessionId: response.session_id
+        };
       }
       
-      return response;
+      return { 
+        success: false, 
+        message: response.message || 'Invalid security code' 
+      };
     } catch (error) {
+      console.error("AuthContext: Security code error:", error);
       return { 
         success: false, 
         message: error instanceof Error ? error.message : 'Error verifying code' 
@@ -105,9 +160,12 @@ if (response) {
   };
 
   const logout = () => {
+    localStorage.removeItem('auth_session_id');
+    setSessionToken(null);
     setIsAuthenticated(false);
   };
 
+  // Prepare context value
   const value = {
     isAuthenticated,
     login,
