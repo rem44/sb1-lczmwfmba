@@ -40,54 +40,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string) => {
     try {
+      // Use the api.login function to authenticate
       const response = await api.login(email, password);
-      if (response.success) {
+      
+      // Check if authentication was successful
+      if (response && (response.success || response.status === "success")) {
         setIsAuthenticated(true);
+        return {
+          success: true,
+          jobId: response.jobId,
+          // Check if security code is required
+          requiresSecurityCode: response.auth_result?.requires_security_code || false,
+          sessionId: response.auth_result?.session_id || null
+        };
       }
-      return response;
+      
+      // If authentication requires a security code
+      if (response && response.auth_result?.requires_security_code) {
+        return {
+          success: false,
+          requiresSecurityCode: true,
+          sessionId: response.auth_result.session_id,
+          jobId: response.jobId
+        };
+      }
+      
+      return { 
+        success: false,
+        message: response.message || 'Authentication failed' 
+      };
     } catch (error) {
-      if (error instanceof Error) {
-        return { success: false, message: error.message };
-      }
-      return { success: false, message: 'Une erreur est survenue' };
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Error during login' 
+      };
     }
   };
 
   const submitSecurityCode = async (code: string, sessionId: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL}/api/verify-code`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code, sessionId }),
-      });
+      const response = await api.submitSecurityCode(code, sessionId);
       
-      const data = await response.json();
-      
-      if (data.success) {
+      if (response.success) {
         setIsAuthenticated(true);
       }
       
-      return data;
+      return response;
     } catch (error) {
-      if (error instanceof Error) {
-        return { success: false, message: error.message };
-      }
-      return { success: false, message: 'Une erreur est survenue' };
+      return { 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Error verifying code' 
+      };
     }
   };
 
-  const logout = async () => {
-    try {
-      await fetch(`${import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL}/api/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } finally {
-      setIsAuthenticated(false);
-    }
+  const logout = () => {
+    setIsAuthenticated(false);
   };
 
   const value = {
