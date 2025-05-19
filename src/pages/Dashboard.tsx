@@ -53,6 +53,15 @@ const Dashboard: React.FC = () => {
     totalSize: '0 Mo',
     downloadPath: '/telecharges/'
   });
+  const [downloadProgress, setDownloadProgress] = useState<{
+    current: number;
+    total: number;
+    completed: number;
+  }>({
+    current: 0,
+    total: 0,
+    completed: 0
+  });
 
   // Handle polling for download status
   useEffect(() => {
@@ -66,6 +75,15 @@ const Dashboard: React.FC = () => {
           // Update progress based on status
           if (typeof status.progress === 'number') {
             setProgress(status.progress);
+          }
+          
+          // Update download progress if available
+          if (status.current && status.total) {
+            setDownloadProgress({
+              current: status.current,
+              total: status.total,
+              completed: status.completed || downloadProgress.completed
+            });
           }
           
           if (status.status === 'completed') {
@@ -95,7 +113,7 @@ const Dashboard: React.FC = () => {
                     tenderName: doc.appel || 'Appel d\'offre',
                     fileName: doc.fichier || `Document ${index+1}`,
                     date: doc.date || new Date().toLocaleDateString('fr-FR'),
-                    size: '---'
+                    size: doc.size || '---'
                   }));
                   setDocuments(docs);
                 }
@@ -140,12 +158,15 @@ const Dashboard: React.FC = () => {
       const response = await login(creds.username, creds.password);
       console.log("Login response:", response);
       
-      if (response.requiresSecurityCode) {
+      if (response.requiresSecurityCode || response.requires_security_code) {
         // Security code is required
-        console.log("Security code required, session ID:", response.sessionId);
+        const sessionId = response.sessionId || response.session_id;
+        const jobId = response.jobId;
+        
+        console.log("Security code required, session ID:", sessionId);
         setRequiresSecurityCode(true);
-        setTempSessionId(response.sessionId);
-        setTempJobId(response.jobId);
+        setTempSessionId(sessionId);
+        setTempJobId(jobId);
         updateStatus('2', 'success');
         updateStatus('3', 'waiting', 'Attente du code de sécurité...');
       } else if (response.success) {
@@ -186,7 +207,7 @@ const Dashboard: React.FC = () => {
     updateStatus('3', 'loading', 'Vérification du code de sécurité...');
     
     try {
-      console.log("Submitting security code for session:", tempSessionId);
+      console.log("Submitting security code for session:", tempSessionId, "Job ID:", tempJobId);
       const response = await submitSecurityCode(code, tempSessionId, tempJobId || undefined);
       console.log("Security code response:", response);
       
@@ -217,7 +238,7 @@ const Dashboard: React.FC = () => {
     updateStatus('2', 'waiting');
   };
 
-  const handleStartScraping = async (creds: { username: string; password: string }) => {
+  const handleStartScraping = async () => {
     setIsLoading(true);
     updateStatus('4', 'loading');
     setProgress(60);
@@ -225,11 +246,13 @@ const Dashboard: React.FC = () => {
 
     try {
       // Use the stored credentials or the ones passed from the form
-      const credsToUse = credentials || creds;
+      if (!credentials) {
+        throw new Error("Aucune information d'identification disponible");
+      }
       
       // Make the API call to start the download with credentials
-      console.log("Starting download with credentials:", credsToUse.username);
-      const result = await api.startDownload(credsToUse);
+      console.log("Starting download with credentials:", credentials.username);
+      const result = await api.startDownload(credentials);
       
       console.log("Download started:", result);
       
@@ -237,7 +260,7 @@ const Dashboard: React.FC = () => {
       if (result.task_id) {
         setTaskId(result.task_id);
       } else {
-        throw new Error('No task ID returned from server');
+        throw new Error('Aucun identifiant de tâche retourné par le serveur');
       }
       
     } catch (err) {
@@ -353,6 +376,7 @@ const Dashboard: React.FC = () => {
               onSubmit={handleSecurityCodeSubmit}
               onCancel={handleCancelSecurityCode}
               isLoading={isLoading}
+              sessionId={tempSessionId || ''}
             />
           ) : (
             <ConnectionForm 
