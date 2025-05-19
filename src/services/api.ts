@@ -68,45 +68,48 @@ export const api = {
   },
   
   async submitSecurityCode(code: string, sessionId: string, jobId?: string) {
-    console.log(`Submitting security code to ${API_BASE_URL}/scraper/verify-code`);
-    
-    // Clean up the code - remove spaces and non-digits
-    const cleanCode = code.replace(/\D/g, '');
-    
-    // Create payload object
-    const payload: any = { 
-      code: cleanCode, 
-      session_id: sessionId
-    };
-    
-    // Only add job_id if provided and not undefined/null
-    if (jobId && jobId !== 'undefined' && jobId !== 'null') {
-      payload.job_id = jobId;
-    }
-    
-    console.log("Security code payload:", payload);
-    
-    return fetchWithJson(`${API_BASE_URL}/scraper/verify-code`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  },
+  console.log(`Submitting security code to ${API_BASE_URL}/scraper/verify-code`);
+  
+  // Clean up the code - remove spaces and non-digits
+  const cleanCode = code.replace(/\D/g, '');
+  
+  // Create payload object
+  const payload: any = { 
+    code: cleanCode, 
+    session_id: sessionId
+  };
+  
+  // Only add job_id if provided and not undefined/null
+  if (jobId && jobId !== 'undefined' && jobId !== 'null') {
+    payload.job_id = jobId;
+  }
+  
+  console.log("Security code payload:", payload);
+  
+  return fetchWithJson(`${API_BASE_URL}/scraper/verify-code`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+},
   
   async checkJobStatus(jobId: string) {
     return fetchWithJson(`${API_BASE_URL}/scraper/status/${jobId}`);
   },
   
   // Download functions
-  async startDownload(credentials: { username: string; password: string }) {
-    console.log(`Starting download at ${API_BASE_URL}/start_download`);
-    return fetchWithJson(`${API_BASE_URL}/start_download`, {
-      method: 'POST',
-      body: JSON.stringify({ 
-        username: credentials.username,
-        password: credentials.password 
-      }),
-    });
-  },
+  // Modifier startDownload pour accepter credentials
+async startDownload(credentials?: { username: string; password: string }) {
+  console.log(`Starting download at ${API_BASE_URL}/start_download`);
+  
+  const payload = credentials 
+    ? { username: credentials.username, password: credentials.password }
+    : {};
+    
+  return fetchWithJson(`${API_BASE_URL}/start_download`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+},
   
   async checkDownloadStatus(taskId: string) {
     return fetchWithJson(`${API_BASE_URL}/download_status/${taskId}`);
