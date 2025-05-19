@@ -85,7 +85,7 @@ export const api = {
   return fetchWithJson(`${API_BASE_URL}/start_download`, {
     method: 'POST',
     body: JSON.stringify({ 
-      email: credentials.username,  // Map username to email for backend
+      username: credentials.username,  // Map username to username for backend
       password: credentials.password 
     }),
   });
