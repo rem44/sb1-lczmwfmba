@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../utils/AuthContext';
 
 const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState<string>('');
+  const [username, setusername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [securityCode, setSecurityCode] = useState<string>('');
   const [tempSessionId, setTempSessionId] = useState<string>('');
@@ -21,7 +21,7 @@ const LoginForm: React.FC = () => {
     setError('');
     
     try {
-      const response = await login(email, password);
+      const response = await login(username, password);
       
       if (response.requiresSecurityCode) {
         setRequiresCode(true);
@@ -90,12 +90,12 @@ const LoginForm: React.FC = () => {
       {!requiresCode ? (
         <form onSubmit={handleLogin}>
           <div className="form-group">
-            <label htmlFor="email">Identifiant (Email)</label>
+            <label htmlFor="username">Identifiant (username)</label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="username"
+              value={username}
+              onChange={(e) => setusername(e.target.value)}
               required
             />
           </div>
@@ -122,7 +122,7 @@ const LoginForm: React.FC = () => {
       ) : (
         <form onSubmit={handleSecurityCodeSubmit}>
           <div className="security-code-container">
-            <p>Un code de sécurité a été envoyé à votre adresse email. Veuillez le saisir ci-dessous:</p>
+            <p>Un code de sécurité a été envoyé à votre adresse username. Veuillez le saisir ci-dessous:</p>
             
             <div className="form-group">
               <label htmlFor="securityCode">Code de sécurité</label>
