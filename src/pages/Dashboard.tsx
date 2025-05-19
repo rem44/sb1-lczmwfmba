@@ -177,37 +177,37 @@ const Dashboard: React.FC = () => {
   };
   
   const handleSecurityCodeSubmit = async (code: string) => {
-    if (!tempSessionId) {
-      setError("Session invalide");
-      return;
-    }
+  if (!tempSessionId) {
+    setError("Session invalide");
+    return;
+  }
+  
+  setIsLoading(true);
+  updateStatus('3', 'loading', 'Vérification du code de sécurité...');
+  
+  try {
+    console.log("Submitting security code for session:", tempSessionId);
+    const response = await submitSecurityCode(code, tempSessionId, tempJobId || undefined);
+    console.log("Security code response:", response);
     
-    setIsLoading(true);
-    updateStatus('3', 'loading', 'Vérification du code de sécurité...');
-    
-    try {
-      console.log("Submitting security code for session:", tempSessionId);
-      const response = await submitSecurityCode(code, tempSessionId, tempJobId || undefined);
-      console.log("Security code response:", response);
-      
-      if (response.success) {
-        setRequiresSecurityCode(false);
-        setTempSessionId(null);
-        setIsConnected(true);
-        updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials?.username}`);
-        setProgress(50);
-      } else {
-        throw new Error(response.message || 'Code de sécurité invalide');
-      }
-    } catch (err) {
-      console.error("Security code error:", err);
-      const errorMessage = err instanceof Error ? err.message : 'Erreur de vérification du code';
-      setError(errorMessage);
-      updateStatus('3', 'error', 'Échec de la vérification du code');
-    } finally {
-      setIsLoading(false);
+    if (response.success) {
+      setRequiresSecurityCode(false);
+      setTempSessionId(null);
+      setIsConnected(true);
+      updateStatus('3', 'success', `Connexion avec l'identifiant: ${credentials?.username}`);
+      setProgress(50);
+    } else {
+      throw new Error(response.message || 'Code de sécurité invalide');
     }
-  };
+  } catch (err) {
+    console.error("Security code error:", err);
+    const errorMessage = err instanceof Error ? err.message : 'Erreur de vérification du code';
+    setError(errorMessage);
+    updateStatus('3', 'error', 'Échec de la vérification du code');
+  } finally {
+    setIsLoading(false);
+  }
+};
   
   const handleCancelSecurityCode = () => {
     setRequiresSecurityCode(false);
