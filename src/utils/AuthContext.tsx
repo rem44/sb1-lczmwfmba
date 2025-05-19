@@ -126,38 +126,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const submitSecurityCode = async (code: string, sessionId: string, jobId?: string): Promise<LoginResponse> => {
-    try {
-      console.log("AuthContext: Submitting security code for session:", sessionId);
-      const response = await api.submitSecurityCode(code, sessionId, jobId);
-      console.log("AuthContext: Security code response:", response);
-      
-      if (response.success) {
-        // Save the session
-        if (response.session_id) {
-          setSessionToken(response.session_id);
-          localStorage.setItem('auth_session_id', response.session_id);
-        }
-        
-        setIsAuthenticated(true);
-        
-        return {
-          success: true,
-          sessionId: response.session_id
-        };
+  try {
+    console.log("AuthContext: Submitting security code for session:", sessionId);
+    // Call the API with all required parameters
+    const response = await api.submitSecurityCode(code, sessionId, jobId);
+    console.log("AuthContext: Security code response:", response);
+    
+    if (response.success) {
+      // Save the session token
+      if (response.session_id) {
+        setSessionToken(response.session_id);
+        localStorage.setItem('auth_session_id', response.session_id);
       }
       
-      return { 
-        success: false, 
-        message: response.message || 'Invalid security code' 
-      };
-    } catch (error) {
-      console.error("AuthContext: Security code error:", error);
-      return { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'Error verifying code' 
+      setIsAuthenticated(true);
+      
+      return {
+        success: true,
+        sessionId: response.session_id
       };
     }
-  };
+    
+    return { 
+      success: false, 
+      message: response.message || 'Invalid security code' 
+    };
+  } catch (error) {
+    console.error("AuthContext: Security code error:", error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Error verifying code' 
+    };
+  }
+};
 
   const logout = () => {
     localStorage.removeItem('auth_session_id');
