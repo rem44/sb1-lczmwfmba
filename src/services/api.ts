@@ -39,11 +39,11 @@ const fetchWithJson = async (url: string, options: RequestInit = {}) => {
 
 export const api = {
   // Authentication functions
-  async login(email: string, password: string) {
+  async login(username: string, password: string) {
     console.log(`Attempting login to ${API_BASE_URL}/scraper`);
     return fetchWithJson(`${API_BASE_URL}/scraper`, {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username, password }),
     });
   },
   
@@ -80,7 +80,7 @@ export const api = {
   },
   
   // Download functions
-  async startDownload(credentials: { email: string; password: string }) {
+  async startDownload(credentials: { username: string; password: string }) {
     console.log(`Starting download at ${API_BASE_URL}/start_download`);
     return fetchWithJson(`${API_BASE_URL}/start_download`, {
       method: 'POST',
