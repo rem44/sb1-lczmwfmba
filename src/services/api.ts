@@ -2,13 +2,14 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
 
 export const api = {
-  async startDownload() {
+  async startDownload(credentials: { email: string; password: string }) {
     const response = await fetch(`${API_BASE_URL}/api/start_download`, {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify(credentials), // Send credentials in the request body
     });
     
     if (!response.ok) {
@@ -19,6 +20,7 @@ export const api = {
     return response.json();
   },
 
+  // Other methods remain the same
   async checkDownloadStatus(taskId: string) {
     const response = await fetch(`${API_BASE_URL}/api/download_status/${taskId}`, {
       credentials: 'include',
