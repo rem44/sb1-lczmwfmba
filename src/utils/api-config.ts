@@ -4,7 +4,7 @@ const isProduction = window.location.hostname !== 'localhost' && window.location
 
 // Configuration centralisée de l'API
 export const API_BASE_URL = isProduction
-  ? 'https://super-scraper-production.up.railway.app'
+  ? 'https://trainwreckontherail-production.up.railway.app'
   : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001');
 
 console.log('Environnement:', isProduction ? 'PRODUCTION' : 'DÉVELOPPEMENT');
