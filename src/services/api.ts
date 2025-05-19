@@ -80,7 +80,7 @@ export const api = {
   },
   
   // Download functions
-  aasync startDownload(credentials: { username: string; password: string }) {
+  async startDownload(credentials: { username: string; password: string }) {
   console.log(`Starting download at ${API_BASE_URL}/start_download`);
   return fetchWithJson(`${API_BASE_URL}/start_download`, {
     method: 'POST',
