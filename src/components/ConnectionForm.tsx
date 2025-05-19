@@ -15,7 +15,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   isLoading = false,
   isConnected = false
 }) => {
-  const [username, setusername] = useState('shawn.daley@venturecarpets.com');
+  const [username, setUsername] = useState('shawn.daley@venturecarpets.com');
   const [password, setPassword] = useState('********');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -38,12 +38,12 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
             </label>
             <input
               id="username"
-              type="username"
+              type="text"
               value={username}
-              onChange={(e) => setusername(e.target.value)}
+              onChange={(e) => setUsername(e.target.value)}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
-              disabled={isConnected}
+              disabled={isConnected || isLoading}
             />
           </div>
           <div>
@@ -57,7 +57,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
               onChange={(e) => setPassword(e.target.value)}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
-              disabled={isConnected}
+              disabled={isConnected || isLoading}
             />
           </div>
         </div>
