@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { LogIn, Download } from 'lucide-react';
 
 interface ConnectionFormProps {
-  onLogin: (credentials: { email: string; password: string }) => void;
-  onStartScraping: (credentials: { email: string; password: string }) => void;
+  onLogin: (credentials: { username: string; password: string }) => void;
+  onStartScraping: (credentials: { username: string; password: string }) => void;
   isLoading?: boolean;
   isConnected?: boolean;
 }
@@ -15,16 +15,16 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   isLoading = false,
   isConnected = false
 }) => {
-  const [email, setEmail] = useState('shawn.daley@venturecarpets.com');
+  const [username, setusername] = useState('shawn.daley@venturecarpets.com');
   const [password, setPassword] = useState('********');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin({ email, password });
+    onLogin({ username, password });
   };
 
   const handleStartScraping = () => {
-    onStartScraping({ email, password });
+    onStartScraping({ username, password });
   };
 
   return (
@@ -33,14 +33,14 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Identifiant (Email)
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+              Identifiant (username)
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="username"
+              type="username"
+              value={username}
+              onChange={(e) => setusername(e.target.value)}
               className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
               required
               disabled={isConnected}
