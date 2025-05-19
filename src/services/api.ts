@@ -22,7 +22,12 @@ const API_BASE_URL = getApiBaseUrl();
 // Helper for common fetch options with error handling
 const fetchWithJson = async (url: string, options: RequestInit = {}) => {
   try {
-    console.log(`API request to: ${url}`, options);
+    console.log(`API request to: ${url}`, {
+      method: options.method,
+      headers: options.headers,
+      hasBody: !!options.body
+    });
+    
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -32,10 +37,17 @@ const fetchWithJson = async (url: string, options: RequestInit = {}) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ 
+      let errorData: any = { 
         message: `HTTP error ${response.status}` 
-      }));
-      throw new Error(errorData.message || `Request failed with status ${response.status}`);
+      };
+      
+      try {
+        errorData = await response.json();
+      } catch {
+        // Unable to parse response as JSON, use default message
+      }
+      
+      throw new Error(errorData.message || errorData.error || `Request failed with status ${response.status}`);
     }
 
     const data = await response.json();
@@ -68,48 +80,51 @@ export const api = {
   },
   
   async submitSecurityCode(code: string, sessionId: string, jobId?: string) {
-  console.log(`Submitting security code to ${API_BASE_URL}/scraper/verify-code`);
-  
-  // Clean up the code - remove spaces and non-digits
-  const cleanCode = code.replace(/\D/g, '');
-  
-  // Create payload object
-  const payload: any = { 
-    code: cleanCode, 
-    session_id: sessionId
-  };
-  
-  // Only add job_id if provided and not undefined/null
-  if (jobId && jobId !== 'undefined' && jobId !== 'null') {
-    payload.job_id = jobId;
-  }
-  
-  console.log("Security code payload:", payload);
-  
-  return fetchWithJson(`${API_BASE_URL}/scraper/verify-code`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-},
+    console.log(`Submitting security code to ${API_BASE_URL}/scraper/verify-code`);
+    
+    // Clean up the code - remove spaces and non-digits
+    const cleanCode = code.replace(/\D/g, '');
+    
+    // Create payload object
+    const payload: Record<string, string> = { 
+      code: cleanCode, 
+      session_id: sessionId
+    };
+    
+    // Only add job_id if provided and not undefined/null
+    if (jobId && jobId !== 'undefined' && jobId !== 'null') {
+      payload.job_id = jobId;
+    }
+    
+    console.log("Security code payload:", {
+      code: `${cleanCode.substring(0, 1)}${'*'.repeat(cleanCode.length - 1)}`,
+      session_id: sessionId,
+      job_id: jobId
+    });
+    
+    return fetchWithJson(`${API_BASE_URL}/scraper/verify-code`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
   
   async checkJobStatus(jobId: string) {
     return fetchWithJson(`${API_BASE_URL}/scraper/status/${jobId}`);
   },
   
   // Download functions
-  // Modifier startDownload pour accepter credentials
-async startDownload(credentials?: { username: string; password: string }) {
-  console.log(`Starting download at ${API_BASE_URL}/start_download`);
-  
-  const payload = credentials 
-    ? { username: credentials.username, password: credentials.password }
-    : {};
+  async startDownload(credentials?: { username: string; password: string }) {
+    console.log(`Starting download at ${API_BASE_URL}/start_download`);
     
-  return fetchWithJson(`${API_BASE_URL}/start_download`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-},
+    const payload = credentials 
+      ? { username: credentials.username, password: credentials.password }
+      : {};
+      
+    return fetchWithJson(`${API_BASE_URL}/start_download`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
   
   async checkDownloadStatus(taskId: string) {
     return fetchWithJson(`${API_BASE_URL}/download_status/${taskId}`);
