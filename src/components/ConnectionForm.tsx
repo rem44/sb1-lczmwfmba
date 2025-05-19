@@ -1,9 +1,10 @@
+// src/components/ConnectionForm.tsx
 import React, { useState } from 'react';
 import { LogIn, Download } from 'lucide-react';
 
 interface ConnectionFormProps {
   onLogin: (credentials: { email: string; password: string }) => void;
-  onStartScraping: () => void;
+  onStartScraping: (credentials: { email: string; password: string }) => void;
   isLoading?: boolean;
   isConnected?: boolean;
 }
@@ -20,6 +21,10 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onLogin({ email, password });
+  };
+
+  const handleStartScraping = () => {
+    onStartScraping({ email, password });
   };
 
   return (
@@ -74,7 +79,7 @@ const ConnectionForm: React.FC<ConnectionFormProps> = ({
           ) : (
             <button
               type="button"
-              onClick={onStartScraping}
+              onClick={handleStartScraping}
               disabled={isLoading}
               className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
                 isLoading ? 'opacity-70 cursor-not-allowed' : ''
