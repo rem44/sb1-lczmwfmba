@@ -80,13 +80,17 @@ export const api = {
   },
   
   // Download functions
-  async startDownload(credentials: { username: string; password: string }) {
-    console.log(`Starting download at ${API_BASE_URL}/start_download`);
-    return fetchWithJson(`${API_BASE_URL}/start_download`, {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
-  },
+  aasync startDownload(credentials: { username: string; password: string }) {
+  console.log(`Starting download at ${API_BASE_URL}/start_download`);
+  return fetchWithJson(`${API_BASE_URL}/start_download`, {
+    method: 'POST',
+    body: JSON.stringify({ 
+      email: credentials.username,  // Map username to email for backend
+      password: credentials.password 
+    }),
+  });
+}
+,
   
   async checkDownloadStatus(taskId: string) {
     return fetchWithJson(`${API_BASE_URL}/download_status/${taskId}`);
