@@ -22,6 +22,7 @@ const API_BASE_URL = getApiBaseUrl();
 // Helper for common fetch options with error handling
 const fetchWithJson = async (url: string, options: RequestInit = {}) => {
   try {
+    console.log(`API request to: ${url}`, options);
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -37,7 +38,9 @@ const fetchWithJson = async (url: string, options: RequestInit = {}) => {
       throw new Error(errorData.message || `Request failed with status ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log(`API response from: ${url}`, data);
+    return data;
   } catch (error) {
     console.error(`API error for ${url}:`, error);
     throw error;
@@ -66,15 +69,22 @@ export const api = {
   
   async submitSecurityCode(code: string, sessionId: string, jobId?: string) {
     console.log(`Submitting security code to ${API_BASE_URL}/scraper/verify-code`);
+    
+    // Clean up the code - remove spaces and non-digits
+    const cleanCode = code.replace(/\D/g, '');
+    
+    // Create payload object
     const payload: any = { 
-      code, 
+      code: cleanCode, 
       session_id: sessionId
     };
     
-    // Only add job_id if provided
-    if (jobId) {
+    // Only add job_id if provided and not undefined/null
+    if (jobId && jobId !== 'undefined' && jobId !== 'null') {
       payload.job_id = jobId;
     }
+    
+    console.log("Security code payload:", payload);
     
     return fetchWithJson(`${API_BASE_URL}/scraper/verify-code`, {
       method: 'POST',
@@ -109,6 +119,7 @@ export const api = {
   // Utility functions
   async testConnection() {
     try {
+      console.log(`Testing connection to ${API_BASE_URL}/health`);
       const healthResponse = await fetch(`${API_BASE_URL}/health`, {
         method: 'GET',
         cache: 'no-cache',
@@ -126,11 +137,46 @@ export const api = {
       
       return result;
     } catch (error) {
+      console.error('Connection test failed:', error);
       return {
         success: false,
         status: 0, // Connection failed
         error: error instanceof Error ? error.message : String(error),
         data: null
+      };
+    }
+  },
+  
+  // Debug function to help troubleshoot API issues
+  async debugRequest(endpoint: string, method: string = 'GET', body?: any) {
+    console.log(`Debug request to ${API_BASE_URL}/${endpoint}`);
+    try {
+      const options: RequestInit = {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      };
+      
+      if (body) {
+        options.body = JSON.stringify(body);
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/${endpoint}`, options);
+      const responseData = await response.json().catch(() => null);
+      
+      return {
+        success: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        data: responseData
+      };
+    } catch (error) {
+      console.error(`Debug request failed:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   }
