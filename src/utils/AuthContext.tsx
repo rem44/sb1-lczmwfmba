@@ -63,10 +63,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<LoginResponse> => {
-    try {
-      console.log("AuthContext: Attempting login with:", email);
-      const response = await api.login(email, password);
+  const login = async (username: string, password: string): Promise<LoginResponse> => {
+  try {
+    console.log("AuthContext: Attempting login with:", username);
+    const response = await api.login(username, password);
       console.log("AuthContext: Login response received:", response);
       
       // Case 1: Standard success response
