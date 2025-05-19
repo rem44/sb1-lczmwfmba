@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TabNavigation from '../components/TabNavigation';
 import ConnectionForm from '../components/ConnectionForm';
 import SecurityCodeForm from '../components/SecurityCodeForm';
@@ -36,7 +36,7 @@ const Dashboard: React.FC = () => {
       id: '3',
       text: 'Authentification avec l\'identifiant:',
       status: 'waiting',
-      details: 'shawn.daley@venturecarpets.com',
+      details: '',
     },
     {
       id: '4',
@@ -44,13 +44,92 @@ const Dashboard: React.FC = () => {
       status: 'waiting',
     }
   ]);
-
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const [downloadId, setDownloadId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [documentStats, setDocumentStats] = useState({
+    totalTenders: 0,
+    totalDocuments: 0,
+    totalSize: '0 Mo',
+    downloadPath: '/telecharges/'
+  });
+
+  // Handle polling for download status
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (taskId && isLoading) {
+      interval = setInterval(async () => {
+        try {
+          const status = await api.checkDownloadStatus(taskId);
+          
+          // Update progress based on status
+          if (typeof status.progress === 'number') {
+            setProgress(status.progress);
+          }
+          
+          if (status.status === 'completed') {
+            setIsLoading(false);
+            
+            // Update document stats if available
+            if (status.download_info) {
+              setDocumentStats({
+                totalTenders: status.download_info.appels_count || 0,
+                totalDocuments: status.download_info.file_count || 0,
+                totalSize: status.download_info.total_size 
+                  ? `${(status.download_info.total_size / (1024 * 1024)).toFixed(2)} Mo` 
+                  : '0 Mo',
+                downloadPath: status.download_info.execution_dir || '/telecharges/'
+              });
+            }
+            
+            // Set the download ID for retrieval
+            if (status.download_id) {
+              setDownloadId(status.download_id);
+              
+              // Try to fetch document list
+              try {
+                if (status.download_info?.documents) {
+                  const docs = status.download_info.documents.map((doc: any, index: number) => ({
+                    id: `doc-${index}`,
+                    tenderName: doc.appel || 'Appel d\'offre',
+                    fileName: doc.fichier || `Document ${index+1}`,
+                    date: doc.date || new Date().toLocaleDateString('fr-FR'),
+                    size: '---'
+                  }));
+                  setDocuments(docs);
+                }
+              } catch (docError) {
+                console.error('Error parsing document list:', docError);
+              }
+            }
+            
+            updateStatus('4', 'success');
+          } else if (status.status === 'failed') {
+            setIsLoading(false);
+            setError(status.message || 'Échec du téléchargement');
+            updateStatus('4', 'error');
+          }
+        } catch (err) {
+          console.error("Status polling error:", err);
+          setIsLoading(false);
+          const errorMessage = err instanceof Error ? err.message : 'Erreur de suivi du téléchargement';
+          setError(errorMessage);
+          updateStatus('4', 'error');
+        }
+      }, 2000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [taskId, isLoading]);
 
   const handleLogin = async (creds: { email: string; password: string }) => {
     setError(null);
     setIsLoading(true);
     updateStatus('2', 'loading');
+    updateStatus('3', 'waiting', `Authentification avec l'identifiant: ${creds.email}`);
     
     // Save credentials for later use with scraping
     setCredentials(creds);
@@ -108,7 +187,7 @@ const Dashboard: React.FC = () => {
     
     try {
       console.log("Submitting security code for session:", tempSessionId);
-      const response = await submitSecurityCode(code, tempSessionId);
+      const response = await submitSecurityCode(code, tempSessionId, tempJobId || undefined);
       console.log("Security code response:", response);
       
       if (response.success) {
@@ -142,6 +221,7 @@ const Dashboard: React.FC = () => {
     setIsLoading(true);
     updateStatus('4', 'loading');
     setProgress(60);
+    setError(null);
 
     try {
       // Use the stored credentials or the ones passed from the form
@@ -153,47 +233,20 @@ const Dashboard: React.FC = () => {
       
       console.log("Download started:", result);
       
-      updateStatus('4', 'success');
-      setProgress(100);
-      
-      // Start polling for status updates
+      // Store the task ID for status polling
       if (result.task_id) {
-        startStatusPolling(result.task_id);
+        setTaskId(result.task_id);
+      } else {
+        throw new Error('No task ID returned from server');
       }
+      
     } catch (err) {
       console.error("Download error:", err);
       setIsLoading(false);
       const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
       setError(errorMessage);
       updateStatus('4', 'error');
-    } finally {
-      setIsLoading(false);
     }
-  };
-  
-  const startStatusPolling = (taskId: string) => {
-    // Poll for status updates every 2 seconds
-    const interval = setInterval(async () => {
-      try {
-        const status = await api.checkDownloadStatus(taskId);
-        console.log("Download status:", status);
-        
-        // Update progress based on status
-        setProgress(status.progress || 0);
-        
-        if (status.status === 'completed') {
-          clearInterval(interval);
-          // Handle completion - maybe update the documents list
-          console.log("Download completed, ID:", status.download_id);
-        }
-      } catch (err) {
-        console.error("Status polling error:", err);
-        clearInterval(interval);
-      }
-    }, 2000);
-    
-    // Clean up the interval when component unmounts
-    return () => clearInterval(interval);
   };
   
   const updateStatus = (id: string, status: StatusStep['status'], details?: string) => {
@@ -208,29 +261,59 @@ const Dashboard: React.FC = () => {
 
   const testBackendConnection = async () => {
     try {
+      setError(null);
       console.log("Testing backend connection...");
-      const testUrl = `https://trainwreckontherail-production.up.railway.app/api/health`;
+      
+      // Extract the base URL from the environment variable
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+      // Remove any trailing /api to avoid duplication
+      const baseUrl = apiBaseUrl.replace(/\/api$/, '');
+      
+      // Test the health endpoint
+      const testUrl = `${baseUrl}/api/health`;
+      console.log("Testing connection to:", testUrl);
+      
       const response = await fetch(testUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Server returned status: ${response.status}`);
+      }
       
       const data = await response.json();
       console.log('Backend connection test:', data);
-      alert('Test connection successful. Check console for details.');
+      
+      alert(`Connection successful! Server status: ${data.status || 'OK'}`);
     } catch (error) {
       console.error('Backend connection failed:', error);
-      alert('Test connection failed. Check console for details.');
+      setError(error instanceof Error ? error.message : 'Connection test failed');
+      alert('Connection test failed. Check console for details.');
     }
   };
 
   const handleViewDocument = (doc: Document) => {
     console.log('Viewing document:', doc);
+    // Implementation would depend on how documents are stored/accessed
   };
 
   const handleDownloadDocument = (doc: Document) => {
     console.log('Downloading document:', doc);
+    // Implementation would depend on how documents are stored/accessed
   };
 
   const handleDeleteDocument = (doc: Document) => {
     console.log('Deleting document:', doc);
+    // Request confirmation
+    if (window.confirm(`Êtes-vous sûr de vouloir supprimer le document "${doc.fileName}" ?`)) {
+      // Remove from the local state
+      setDocuments(prevDocuments => prevDocuments.filter(d => d.id !== doc.id));
+      // In a real app, you'd also call an API to delete the document
+    }
+  };
+
+  const handleDownloadAll = () => {
+    if (downloadId) {
+      window.location.href = api.getDownloadUrl(downloadId);
+    }
   };
 
   return (
@@ -278,20 +361,35 @@ const Dashboard: React.FC = () => {
           />
           
           <DocumentStats 
-            totalTenders={0}
-            totalDocuments={0}
-            totalSize="0 Mo"
-            downloadPath="/telecharges/"
+            totalTenders={documentStats.totalTenders}
+            totalDocuments={documentStats.totalDocuments}
+            totalSize={documentStats.totalSize}
+            downloadPath={documentStats.downloadPath}
           />
           
-          <DocumentsTable 
-            documents={documents}
-            onViewDocument={handleViewDocument}
-            onDownloadDocument={handleDownloadDocument}
-            onDeleteDocument={handleDeleteDocument}
-          />
+          {documents.length > 0 && (
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-md font-medium text-gray-900">Documents disponibles</h3>
+                {downloadId && (
+                  <button
+                    onClick={handleDownloadAll}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    Télécharger tous les documents
+                  </button>
+                )}
+              </div>
+              <DocumentsTable 
+                documents={documents}
+                onViewDocument={handleViewDocument}
+                onDownloadDocument={handleDownloadDocument}
+                onDeleteDocument={handleDeleteDocument}
+              />
+            </div>
+          )}
 
-          <div className="mt-4 p-4 bg-gray-100 rounded-lg">
+          <div className="mt-8 p-4 bg-gray-100 rounded-lg">
             <h3 className="text-md font-medium text-gray-800 mb-2">Diagnostics</h3>
             <button 
               onClick={testBackendConnection}
@@ -299,6 +397,12 @@ const Dashboard: React.FC = () => {
             >
               Test Backend Connection
             </button>
+            <p className="mt-2 text-xs text-gray-500">
+              Cette fonction vérifie la connexion au backend en envoyant une requête au point de terminaison /api/health.
+            </p>
+            <p className="mt-2 text-xs text-gray-600">
+              Utilisant l'URL: {import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}
+            </p>
           </div>
         </div>
       )}
