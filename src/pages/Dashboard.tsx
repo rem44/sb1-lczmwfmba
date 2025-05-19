@@ -316,15 +316,12 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // For development testing only
   const testSecurityCodeForm = () => {
-  setRequiresSecurityCode(true);
-  setTempSessionId("test-session-id");
-  setTempJobId("test-job-id");
-};
-
-  // Debug logs
-  console.log("Security code required:", requiresSecurityCode);
-  console.log("Session ID for verification:", tempSessionId);
+    setRequiresSecurityCode(true);
+    setTempSessionId("test-session-id");
+    setTempJobId("test-job-id");
+  };
 
   return (
     <div>
@@ -350,6 +347,7 @@ const Dashboard: React.FC = () => {
             </div>
           )}
           
+          {/* Main Form Area - Show either security code form or connection form */}
           {requiresSecurityCode ? (
             <SecurityCodeForm 
               onSubmit={handleSecurityCodeSubmit}
@@ -408,14 +406,13 @@ const Dashboard: React.FC = () => {
               Test Backend Connection
             </button>
             
-            {process.env.NODE_ENV === 'development' && (
-              <button 
-                onClick={testSecurityCodeForm}
-                className="ml-3 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-              >
-                Test Security Code Form
-              </button>
-            )}
+            {/* Test button for security code form - visible in development mode */}
+            <button 
+              onClick={testSecurityCodeForm}
+              className="ml-3 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+            >
+              Test Security Code Form
+            </button>
             
             <p className="mt-2 text-xs text-gray-500">
               Cette fonction vérifie la connexion au backend en envoyant une requête au point de terminaison /api/health.
