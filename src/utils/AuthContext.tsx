@@ -44,15 +44,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.login(email, password);
       
       // Check if authentication was successful
-      if (response && (response.success || response.status === "success")) {
-        setIsAuthenticated(true);
-        return {
-          success: true,
-          jobId: response.jobId,
-          // Check if security code is required
-          requiresSecurityCode: response.auth_result?.requires_security_code || false,
-          sessionId: response.auth_result?.session_id || null
-        };
+if (response) {
+  if (response.success || response.status === "success") {
+    setIsAuthenticated(true);
+    return {
+      success: true,
+      jobId: response.jobId,
+      requiresSecurityCode: false,
+      sessionId: response.session_id || null
+    };
+  } else if (response.auth_result?.requires_security_code || 
+             response.requires_security_code) {
+    return {
+      success: false,
+      requiresSecurityCode: true,
+      sessionId: response.auth_result?.session_id || response.session_id,
+      jobId: response.jobId
+    };
+  }
+}
       }
       
       // If authentication requires a security code
