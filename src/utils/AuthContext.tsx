@@ -13,9 +13,17 @@ interface AuthContextType {
 interface LoginResponse {
   success: boolean;
   requiresSecurityCode?: boolean;
+  requires_security_code?: boolean;
   sessionId?: string | null;
+  session_id?: string | null;
   jobId?: string | null;
+  job_id?: string | null;
   message?: string;
+  auth_result?: {
+    requires_security_code?: boolean;
+    session_id?: string;
+    job_id?: string;
+  };
 }
 
 // Default context value
@@ -69,58 +77,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.login(username, password);
       console.log("AuthContext: Login response received:", response);
       
-      // Case 1: Standard success response
-      if (response.success === true || response.status === "success") {
+      // Debugging: Log all relevant fields for checking security code requirement
+      console.log("AuthContext: Security code check fields:", {
+        directRequires: response.requiresSecurityCode,
+        snakeCaseRequires: response.requires_security_code,
+        auth_result: response.auth_result,
+        auth_result_requires: response.auth_result?.requires_security_code
+      });
+      
+      // Cas 1: Succès standard sans code de sécurité
+      if ((response.success === true || response.status === "success") && 
+          !response.requiresSecurityCode && 
+          !response.requires_security_code && 
+          !response.auth_result?.requires_security_code) {
         console.log("AuthContext: Login successful");
         
         // Save session ID if available
-        if (response.session_id) {
-          setSessionToken(response.session_id);
-          localStorage.setItem('auth_session_id', response.session_id);
+        if (response.session_id || response.sessionId) {
+          const sessionId = response.session_id || response.sessionId;
+          setSessionToken(sessionId);
+          localStorage.setItem('auth_session_id', sessionId);
         }
         
         setIsAuthenticated(true);
         
         return {
           success: true,
-          jobId: response.jobId,
-          sessionId: response.session_id
+          sessionId: response.session_id || response.sessionId,
+          jobId: response.jobId || response.job_id
         };
       }
       
-      // Case 2: Security code required from main response
-      if (response.requires_security_code) {
-        console.log("AuthContext: Security code required from main response");
+      // Cas 2: Code de sécurité requis - format direct
+      if (response.requiresSecurityCode === true || response.requires_security_code === true) {
+        console.log("AuthContext: Security code required (direct format)");
         return {
           success: false,
           requiresSecurityCode: true,
-          sessionId: response.session_id,
-          jobId: response.jobId
+          requires_security_code: true,
+          sessionId: response.sessionId || response.session_id,
+          jobId: response.jobId || response.job_id,
+          message: "Un code de sécurité est requis pour poursuivre."
         };
       }
       
-      // Case 3: Security code required nested in auth_result
-      if (response.auth_result && response.auth_result.requires_security_code) {
-        console.log("AuthContext: Security code required from auth_result");
+      // Cas 3: Code de sécurité requis - format auth_result
+      if (response.auth_result && response.auth_result.requires_security_code === true) {
+        console.log("AuthContext: Security code required (auth_result format)");
         return {
           success: false,
           requiresSecurityCode: true,
+          requires_security_code: true,
           sessionId: response.auth_result.session_id,
-          jobId: response.jobId
+          jobId: response.auth_result.job_id || response.jobId || response.job_id,
+          message: "Un code de sécurité est requis pour poursuivre."
         };
       }
       
-      // Case 4: Generic failure
-      console.log("AuthContext: Login failed with response:", response);
+      // Cas 4: Échec générique
+      console.log("AuthContext: Login failed with generic response:", response);
       return { 
         success: false, 
-        message: response.message || response.error || 'Authentication failed' 
+        message: response.message || response.error || 'Échec de l\'authentification' 
       };
     } catch (error) {
       console.error("AuthContext: Login error:", error);
       return { 
         success: false, 
-        message: error instanceof Error ? error.message : 'Error during login' 
+        message: error instanceof Error ? error.message : 'Erreur lors de la connexion' 
       };
     }
   };
@@ -128,15 +152,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const submitSecurityCode = async (code: string, sessionId: string, jobId?: string): Promise<LoginResponse> => {
     try {
       console.log("AuthContext: Submitting security code details:", { 
-        code, 
-        sessionId,
-        jobId 
+        code: code.substring(0, 1) + '*'.repeat(code.length - 1), 
+        sessionId: sessionId.substring(0, 8) + '...',
+        jobId: jobId ? jobId.substring(0, 8) + '...' : undefined 
       });
       
       // Clean up the code - remove any non-digit characters
       const cleanCode = code.replace(/\D/g, '');
-      console.log(`AuthContext: Using clean code: ${cleanCode.substring(0, 2)}****`);
-      
+      console.log("AuthContext: Using clean code:", cleanCode.substring(0, 1) + '*'.repeat(cleanCode.length - 1));
+
       // Handle test session specially
       if (sessionId === "test-session-id") {
         console.log("AuthContext: Using test session");
@@ -160,45 +184,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      // Regular API call for real sessions
-      const payload = { 
-        code: cleanCode, 
-        session_id: sessionId
-      };
-      
-      // Only add job_id if it exists and isn't undefined or null
-      if (jobId && jobId !== 'undefined') {
-        payload.job_id = jobId;
-      }
-      
-      console.log("AuthContext: Security code payload:", payload);
+      // API call for real sessions
       const response = await api.submitSecurityCode(cleanCode, sessionId, jobId);
       console.log("AuthContext: Security code response:", response);
       
       if (response.success) {
         // Save the session token
-        if (response.session_id) {
-          setSessionToken(response.session_id);
-          localStorage.setItem('auth_session_id', response.session_id);
+        if (response.session_id || response.sessionId) {
+          const newSessionId = response.session_id || response.sessionId;
+          setSessionToken(newSessionId);
+          localStorage.setItem('auth_session_id', newSessionId);
         }
         
         setIsAuthenticated(true);
         
         return {
           success: true,
-          sessionId: response.session_id
+          sessionId: response.session_id || response.sessionId
         };
       }
       
       return { 
         success: false, 
-        message: response.message || 'Invalid security code' 
+        message: response.message || 'Code de sécurité invalide' 
       };
     } catch (error) {
       console.error("AuthContext: Security code error:", error);
       return { 
         success: false, 
-        message: error instanceof Error ? error.message : 'Error verifying code' 
+        message: error instanceof Error ? error.message : 'Erreur lors de la vérification du code' 
       };
     }
   };
