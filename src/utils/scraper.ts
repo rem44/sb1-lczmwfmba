@@ -1,5 +1,5 @@
 // API configuration - Optimisé pour Vite
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://super-scraper-production.up.railway.app';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://trainwreckontherail-production.up.railway.app';
 
 // Configuration API unifiée
 export const API_CONFIG = {
