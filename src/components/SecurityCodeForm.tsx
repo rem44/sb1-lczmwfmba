@@ -1,4 +1,4 @@
-// Mise à jour de src/components/SecurityCodeForm.tsx
+// src/components/SecurityCodeForm.tsx
 import React, { useState, useEffect } from 'react';
 import { Mail } from 'lucide-react';
 
@@ -6,7 +6,7 @@ interface SecurityCodeFormProps {
   onSubmit: (code: string) => void;
   onCancel: () => void;
   isLoading?: boolean;
-  sessionId?: string; // Ajout du sessionId pour affichage
+  sessionId?: string;
 }
 
 const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
@@ -16,7 +16,20 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
   sessionId = ''
 }) => {
   const [code, setCode] = useState('');
+  const [error, setError] = useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Format code while typing to include only digits
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Keep only digits
+    const cleanCode = e.target.value.replace(/\D/g, '');
+    setCode(cleanCode);
+
+    // Clear any previous errors if user is typing again
+    if (error) {
+      setError('');
+    }
+  };
 
   useEffect(() => {
     if (inputRef.current) {
@@ -26,9 +39,23 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.trim()) {
-      onSubmit(code.trim());
+    
+    // Validate code
+    if (!code.trim()) {
+      setError('Veuillez entrer le code de sécurité');
+      return;
     }
+
+    // Clean code one more time to be sure
+    const cleanCode = code.trim().replace(/\D/g, '');
+    
+    // Validate code length (most SEAO security codes are 6 digits)
+    if (cleanCode.length < 4 || cleanCode.length > 8) {
+      setError('Le code de sécurité doit comporter entre 4 et 8 chiffres');
+      return;
+    }
+    
+    onSubmit(cleanCode);
   };
 
   return (
@@ -37,13 +64,14 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
         <div className="flex items-center">
           <Mail className="text-blue-600 mr-2 h-5 w-5" />
           <p className="text-blue-700 text-sm">
-            Un code de sécurité a été envoyé à votre adresse email. Vérifiez votre boîte de réception.
+            Un code de sécurité a été envoyé à votre adresse email. 
+            <strong className="block mt-1">Vérifiez votre boîte de réception et vos spams.</strong>
             {sessionId && <span className="block text-xs mt-1">Session ID: {sessionId.substring(0, 8)}...</span>}
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+     <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label htmlFor="securityCode" className="block text-sm font-medium text-gray-700 mb-2">
             Code de sécurité
@@ -53,12 +81,17 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
             id="securityCode"
             type="text"
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={handleCodeChange}
             className="block w-full px-4 py-3 text-center bg-blue-50 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-lg tracking-wider"
             placeholder="Entrez le code à 6 chiffres"
             disabled={isLoading}
             autoComplete="one-time-code"
+            inputMode="numeric"
+            maxLength={8}
           />
+          {error && (
+            <p className="mt-2 text-sm text-red-600">{error}</p>
+          )}
           {isLoading && (
             <p className="text-sm text-blue-600 mt-1">Vérification en cours...</p>
           )}
