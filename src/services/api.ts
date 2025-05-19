@@ -1,5 +1,5 @@
 // src/services/api.ts
-const API_BASE_URL = 'https://trainwreckontherail-production.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 export const api = {
   // Authentication functions
