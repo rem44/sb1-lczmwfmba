@@ -3,7 +3,14 @@
 // Get base URL from environment or fallback to localhost
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
+  
+  // Add safety check to ensure URL has a protocol
   if (!envUrl) return 'http://localhost:5000/api';
+  
+  // Ensure URL has protocol
+  if (!envUrl.startsWith('http://') && !envUrl.startsWith('https://')) {
+    return `https://${envUrl}`;
+  }
   
   // Make sure we don't double up on /api
   if (envUrl.endsWith('/api')) return envUrl;
@@ -81,16 +88,15 @@ export const api = {
   
   // Download functions
   async startDownload(credentials: { username: string; password: string }) {
-  console.log(`Starting download at ${API_BASE_URL}/start_download`);
-  return fetchWithJson(`${API_BASE_URL}/start_download`, {
-    method: 'POST',
-    body: JSON.stringify({ 
-      username: credentials.username,  // Map username to username for backend
-      password: credentials.password 
-    }),
-  });
-}
-,
+    console.log(`Starting download at ${API_BASE_URL}/start_download`);
+    return fetchWithJson(`${API_BASE_URL}/start_download`, {
+      method: 'POST',
+      body: JSON.stringify({ 
+        username: credentials.username,
+        password: credentials.password 
+      }),
+    });
+  },
   
   async checkDownloadStatus(taskId: string) {
     return fetchWithJson(`${API_BASE_URL}/download_status/${taskId}`);
