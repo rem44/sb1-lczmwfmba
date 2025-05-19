@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// src/components/SecurityCodeForm.tsx
+import React, { useState, useEffect } from 'react';
 import { KeyRound } from 'lucide-react';
 
 interface SecurityCodeFormProps {
@@ -13,10 +14,28 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
   isLoading = false
 }) => {
   const [code, setCode] = useState('');
+  // Add focus management to improve user experience
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // Auto-focus the input field when the component mounts
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(code);
+    if (code.length === 6) {
+      onSubmit(code);
+    }
+  };
+
+  // Format the code input to improve readability
+  const formatCodeDisplay = (code: string) => {
+    if (code.length <= 3) return code;
+    return `${code.substring(0, 3)} ${code.substring(3)}`;
   };
 
   return (
@@ -35,17 +54,31 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
+          <label htmlFor="securityCode" className="block text-sm font-medium text-blue-700 mb-2">
+            Code de sécurité à 6 chiffres
+          </label>
+          
           <input
+            ref={inputRef}
+            id="securityCode"
             type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Entrez le code à 6 chiffres"
-            className="block w-full px-4 py-3 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            maxLength={6}
+            value={formatCodeDisplay(code)}
+            onChange={(e) => {
+              // Allow only digits and limit to 6 characters
+              const cleanValue = e.target.value.replace(/\D/g, '').slice(0, 6);
+              setCode(cleanValue);
+            }}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            className={`block w-full px-4 py-3 text-center tracking-wider text-lg border ${
+              isFocused ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-300'
+            } rounded-md focus:outline-none transition-all`}
+            maxLength={7} // Allow for space in the formatted display
             pattern="[0-9]*"
             inputMode="numeric"
             autoComplete="one-time-code"
             required
+            placeholder="123456"
           />
         </div>
 
@@ -53,7 +86,7 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
           <button
             type="submit"
             disabled={isLoading || code.length !== 6}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (
               <span className="flex items-center justify-center">
@@ -70,7 +103,7 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
             Annuler
           </button>
