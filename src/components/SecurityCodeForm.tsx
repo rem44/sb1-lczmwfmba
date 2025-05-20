@@ -1,7 +1,4 @@
-Code complet de SecurityCodeForm.tsx avec gestion d'erreur améliorée
-Voici le composant SecurityCodeForm.tsx entièrement modifié pour mieux gérer les erreurs de session expirée :
-
-Copy// src/components/SecurityCodeForm.tsx
+// src/components/SecurityCodeForm.tsx
 import React, { useState, useEffect } from 'react';
 import { Mail, RefreshCw } from 'lucide-react';
 
