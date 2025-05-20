@@ -19,6 +19,7 @@ interface LoginResponse {
   jobId?: string | null;
   job_id?: string | null;
   message?: string;
+  requires_reconnect?: boolean;
   auth_result?: {
     requires_security_code?: boolean;
     session_id?: string;
@@ -161,58 +162,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cleanCode = code.replace(/\D/g, '');
       console.log("AuthContext: Using clean code:", cleanCode.substring(0, 1) + '*'.repeat(cleanCode.length - 1));
 
-      // Handle test session specially
-      if (sessionId === "test-session-id") {
-        console.log("AuthContext: Using test session");
-        
-        // For test sessions, simulate success
-        if (cleanCode === "123456") {
-          setIsAuthenticated(true);
-          const testSessionId = "test-auth-session";
-          setSessionToken(testSessionId);
-          localStorage.setItem('auth_session_id', testSessionId);
+      // Add explicit retries for code verification
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        attempts++;
+        try {
+          const response = await api.submitSecurityCode(cleanCode, sessionId, jobId);
+          console.log("AuthContext: Security code response:", response);
           
-          return {
-            success: true,
-            sessionId: testSessionId
+          if (response.success) {
+            // Save the session token
+            if (response.session_id || response.sessionId) {
+              const newSessionId = response.session_id || response.sessionId;
+              setSessionToken(newSessionId);
+              localStorage.setItem('auth_session_id', newSessionId);
+            }
+            
+            setIsAuthenticated(true);
+            
+            return {
+              success: true,
+              sessionId: response.session_id || response.sessionId
+            };
+          }
+          
+          // If we get a "session expired" error that requires reconnect, break the loop
+          if (response.requires_reconnect) {
+            return { 
+              success: false, 
+              message: response.message || 'Session expired. Please restart the login process.',
+              requires_reconnect: true
+            };
+          }
+          
+          return { 
+            success: false, 
+            message: response.message || 'Invalid security code' 
           };
-        } else {
-          return {
-            success: false,
-            message: "Code de test invalide. Utilisez '123456' pour le test."
-          };
+        } catch (error) {
+          console.error(`AuthContext: Security code error (attempt ${attempts}/${maxAttempts}):`, error);
+          
+          // Only retry on network errors, not application errors
+          if (error instanceof Error && 
+              (error.message.includes('network') || error.message.includes('timeout')) &&
+              attempts < maxAttempts) {
+            console.log(`Retrying security code verification (attempt ${attempts}/${maxAttempts})...`);
+            // Add a small delay before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          
+          throw error;
         }
-      }
-      
-      // API call for real sessions
-      const response = await api.submitSecurityCode(cleanCode, sessionId, jobId);
-      console.log("AuthContext: Security code response:", response);
-      
-      if (response.success) {
-        // Save the session token
-        if (response.session_id || response.sessionId) {
-          const newSessionId = response.session_id || response.sessionId;
-          setSessionToken(newSessionId);
-          localStorage.setItem('auth_session_id', newSessionId);
-        }
-        
-        setIsAuthenticated(true);
-        
-        return {
-          success: true,
-          sessionId: response.session_id || response.sessionId
-        };
       }
       
       return { 
         success: false, 
-        message: response.message || 'Code de sécurité invalide' 
+        message: `Security code verification failed after ${maxAttempts} attempts` 
       };
     } catch (error) {
       console.error("AuthContext: Security code error:", error);
       return { 
         success: false, 
-        message: error instanceof Error ? error.message : 'Erreur lors de la vérification du code' 
+        message: error instanceof Error ? error.message : 'Error during code verification' 
       };
     }
   };
