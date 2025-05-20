@@ -68,13 +68,19 @@ const SecurityCodeForm: React.FC<SecurityCodeFormProps> = ({
       return;
     }
 
+    setError('');
+    setShowReconnectButton(false);
+
     try {
       // Call the API via parent component's onSubmit handler
       onSubmit(cleanCode);
     } catch (error) {
       if (error instanceof Error) {
         // Check if the error message indicates session expiration
-        if (error.message && error.message.includes("Session invalide ou expirée")) {
+        if (error.message && (
+            error.message.includes("Session invalide") || 
+            error.message.includes("expirée") || 
+            error.message.includes("n'est plus disponible"))) {
           setError("Votre session a expiré. Cliquez sur 'Recommencer' pour vous reconnecter.");
           setShowReconnectButton(true);
         } else {
