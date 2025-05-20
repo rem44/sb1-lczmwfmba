@@ -80,32 +80,75 @@ export const api = {
   },
   
   async submitSecurityCode(code: string, sessionId: string, jobId?: string) {
-    console.log(`Submitting security code to ${API_BASE_URL}/scraper/verify-code`);
+    const maxRetries = 2;
+    let retryCount = 0;
+    let lastError: any = null;
     
-    // Clean up the code - remove spaces and non-digits
-    const cleanCode = code.replace(/\D/g, '');
-    
-    // Create payload object
-    const payload: Record<string, string> = { 
-      code: cleanCode, 
-      session_id: sessionId
-    };
-    
-    // Only add job_id if provided and not undefined/null
-    if (jobId && jobId !== 'undefined' && jobId !== 'null') {
-      payload.job_id = jobId;
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`Submitting security code to ${API_BASE_URL}/scraper/verify-code${retryCount > 0 ? ` (retry ${retryCount}/${maxRetries})` : ''}`);
+        
+        // Create payload object
+        const payload: Record<string, string> = { 
+          code, 
+          session_id: sessionId
+        };
+        
+        // Only add job_id if provided and not undefined/null
+        if (jobId && jobId !== 'undefined' && jobId !== 'null') {
+          payload.job_id = jobId;
+        }
+        
+        // Add extra timeout for this critical operation
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+        
+        const response = await fetch(`${API_BASE_URL}/scraper/verify-code`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+  
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ 
+            message: `HTTP error ${response.status}` 
+          }));
+          
+          throw new Error(errorData.message || errorData.error || `Request failed with status ${response.status}`);
+        }
+  
+        const data = await response.json();
+        console.log(`Security code response:`, data);
+        
+        return data;
+      } catch (error) {
+        lastError = error;
+        retryCount++;
+        console.error(`Error during security code verification (attempt ${retryCount}/${maxRetries}):`, error);
+        
+        // Only retry on network errors or timeouts
+        const isNetworkError = error instanceof TypeError || 
+                              (error instanceof Error && 
+                              (error.message?.includes("timeout") || 
+                               error.message?.includes("network") ||
+                               error.name === 'AbortError'));
+                              
+        if (retryCount <= maxRetries && isNetworkError) {
+          console.log(`Retrying in 2 seconds...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        break;
+      }
     }
     
-    console.log("Security code payload:", {
-      code: `${cleanCode.substring(0, 1)}${'*'.repeat(cleanCode.length - 1)}`,
-      session_id: sessionId,
-      job_id: jobId
-    });
-    
-    return fetchWithJson(`${API_BASE_URL}/scraper/verify-code`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    // If we've exhausted all retries, throw the last error
+    throw lastError;
   },
   
   async checkJobStatus(jobId: string) {
