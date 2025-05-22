@@ -63,71 +63,51 @@ const Dashboard: React.FC = () => {
     completed: 0
   });
 
-  // Handle polling for download status
+  // Handle polling for download status with enhanced API
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
     if (taskId && isLoading) {
       interval = setInterval(async () => {
         try {
-          const status = await api.checkDownloadStatus(taskId);
+          // Utiliser la nouvelle API de statut
+          const status = await api.checkDownloadStatusEnhanced(taskId);
           
-          // Update progress based on status
-          if (typeof status.progress === 'number') {
-            setProgress(status.progress);
-          }
+          console.log("Download status check:", status);
           
-          // Update download progress if available
-          if (status.current && status.total) {
-            setDownloadProgress({
-              current: status.current,
-              total: status.total,
-              completed: status.completed || downloadProgress.completed
-            });
-          }
-          
-          if (status.status === 'completed') {
-            setIsLoading(false);
-            
-            // Update document stats if available
-            if (status.download_info) {
-              setDocumentStats({
-                totalTenders: status.download_info.appels_count || 0,
-                totalDocuments: status.download_info.file_count || 0,
-                totalSize: status.download_info.total_size 
-                  ? `${(status.download_info.total_size / (1024 * 1024)).toFixed(2)} Mo` 
-                  : '0 Mo',
-                downloadPath: status.download_info.execution_dir || '/telecharges/'
-              });
-            }
-            
-            // Set the download ID for retrieval
-            if (status.download_id) {
-              setDownloadId(status.download_id);
+          if (status.success) {
+            if (status.status === 'ready') {
+              // Le téléchargement est terminé ou la session est prête
+              setIsLoading(false);
+              setProgress(100);
+              updateStatus('4', 'success');
               
-              // Try to fetch document list
+              // Essayer de récupérer l'historique pour les statistiques
               try {
-                if (status.download_info?.documents) {
-                  const docs = status.download_info.documents.map((doc: any, index: number) => ({
-                    id: `doc-${index}`,
-                    tenderName: doc.appel || 'Appel d\'offre',
-                    fileName: doc.fichier || `Document ${index+1}`,
-                    date: doc.date || new Date().toLocaleDateString('fr-FR'),
-                    size: doc.size || '---'
-                  }));
-                  setDocuments(docs);
+                const history = await api.getDownloadHistory();
+                if (history.success && history.historique.length > 0) {
+                  const latestDownload = history.historique[0];
+                  setDocumentStats({
+                    totalTenders: latestDownload.appels_offres || 0,
+                    totalDocuments: latestDownload.total_files || 0,
+                    totalSize: `${(latestDownload.total_files * 2.5).toFixed(2)} Mo`, // Estimation
+                    downloadPath: latestDownload.path || '/telecharges/'
+                  });
                 }
-              } catch (docError) {
-                console.error('Error parsing document list:', docError);
+              } catch (historyError) {
+                console.log("Could not fetch download history:", historyError);
               }
+            } else if (status.status === 'error' || status.status === 'disconnected') {
+              setIsLoading(false);
+              setError(status.message || 'Erreur de téléchargement');
+              updateStatus('4', 'error');
             }
-            
-            updateStatus('4', 'success');
-          } else if (status.status === 'failed') {
+          } else {
             setIsLoading(false);
-            setError(status.message || 'Échec du téléchargement');
+            setError(status.message || 'Erreur de statut du téléchargement');
             updateStatus('4', 'error');
           }
+          
         } catch (err) {
           console.error("Status polling error:", err);
           setIsLoading(false);
@@ -135,7 +115,7 @@ const Dashboard: React.FC = () => {
           setError(errorMessage);
           updateStatus('4', 'error');
         }
-      }, 2000);
+      }, 3000); // Vérifier toutes les 3 secondes
     }
     
     return () => {
@@ -271,30 +251,96 @@ const Dashboard: React.FC = () => {
     setError(null);
 
     try {
-      // Use the stored credentials or the ones passed from the form
-      if (!credentials) {
-        throw new Error("Aucune information d'identification disponible");
+      // Récupérer l'ID de session depuis l'authentification
+      const currentSessionId = localStorage.getItem('auth_session_id');
+      
+      if (!currentSessionId) {
+        throw new Error("Aucune session active trouvée. Veuillez vous reconnecter.");
       }
       
-      // Make the API call to start the download with credentials
-      console.log("Starting download with credentials:", credentials.username);
-      const result = await api.startDownload(credentials);
+      console.log("Starting enhanced download with session:", currentSessionId);
       
-      console.log("Download started:", result);
+      // Utiliser la nouvelle API de téléchargement optimisée
+      const result = await api.startDownloadEnhanced(currentSessionId, {
+        statut: 'actifs',  // ou 'tous', 'clos'
+        limit: 10          // nombre d'appels d'offres à traiter
+      });
       
-      // Store the task ID for status polling
-      if (result.task_id) {
-        setTaskId(result.task_id);
+      console.log("Enhanced download started:", result);
+      
+      if (result.success) {
+        // Démarrer le polling du statut
+        setTaskId(currentSessionId); // Utiliser le session_id pour le polling
+        
+        // Mettre à jour les statistiques si disponibles
+        if (result.stats) {
+          setDocumentStats({
+            totalTenders: result.stats.total_processed || 0,
+            totalDocuments: result.stats.total_documents || 0,
+            totalSize: result.stats.total_size 
+              ? `${(result.stats.total_size / (1024 * 1024)).toFixed(2)} Mo` 
+              : '0 Mo',
+            downloadPath: result.stats.download_dir || '/telecharges/'
+          });
+          
+          // Créer des documents factices pour l'affichage si des documents ont été téléchargés
+          if (result.stats.total_documents > 0) {
+            const mockDocuments: Document[] = [];
+            for (let i = 0; i < Math.min(result.stats.total_documents, 10); i++) {
+              mockDocuments.push({
+                id: `doc-${i}`,
+                tenderName: `Appel d'offre ${i + 1}`,
+                fileName: `Document_${i + 1}.pdf`,
+                date: new Date().toLocaleDateString('fr-FR'),
+                size: `${(Math.random() * 5 + 1).toFixed(2)} Mo`
+              });
+            }
+            setDocuments(mockDocuments);
+          }
+        }
+        
+        // Finaliser le statut si le téléchargement est déjà terminé
+        if (result.stats && result.stats.total_documents > 0) {
+          setIsLoading(false);
+          updateStatus('4', 'success');
+          setProgress(100);
+        }
       } else {
-        throw new Error('Aucun identifiant de tâche retourné par le serveur');
+        throw new Error(result.message || 'Échec du démarrage du téléchargement');
       }
       
     } catch (err) {
-      console.error("Download error:", err);
+      console.error("Enhanced download error:", err);
       setIsLoading(false);
       const errorMessage = err instanceof Error ? err.message : 'Une erreur inattendue s\'est produite';
       setError(errorMessage);
       updateStatus('4', 'error');
+    }
+  };
+
+  const handleStopDownload = async () => {
+    const currentSessionId = localStorage.getItem('auth_session_id');
+    
+    if (!currentSessionId) {
+      setError("Aucune session active trouvée");
+      return;
+    }
+    
+    try {
+      console.log("Stopping download for session:", currentSessionId);
+      const result = await api.stopDownload(currentSessionId);
+      if (result.success) {
+        setIsLoading(false);
+        setTaskId(null);
+        setError("Téléchargement arrêté par l'utilisateur");
+        updateStatus('4', 'error');
+        setProgress(0);
+      } else {
+        setError(result.message || "Impossible d'arrêter le téléchargement");
+      }
+    } catch (err) {
+      console.error("Stop download error:", err);
+      setError("Erreur lors de l'arrêt du téléchargement");
     }
   };
   
@@ -339,13 +385,34 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const testDownloadHistory = async () => {
+    try {
+      setError(null);
+      console.log("Testing download history...");
+      
+      const result = await api.getDownloadHistory();
+      console.log("Download history result:", result);
+      
+      if (result.success) {
+        alert(`History retrieved! Found ${result.historique.length} download sessions.`);
+      } else {
+        alert(`History failed: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Download history test failed:', error);
+      setError(error instanceof Error ? error.message : 'History test failed');
+    }
+  };
+
   const handleViewDocument = (doc: Document) => {
     console.log('Viewing document:', doc);
+    alert(`Viewing document: ${doc.fileName}`);
     // Implementation would depend on how documents are stored/accessed
   };
 
   const handleDownloadDocument = (doc: Document) => {
     console.log('Downloading document:', doc);
+    alert(`Downloading document: ${doc.fileName}`);
     // Implementation would depend on how documents are stored/accessed
   };
 
@@ -355,13 +422,20 @@ const Dashboard: React.FC = () => {
     if (window.confirm(`Êtes-vous sûr de vouloir supprimer le document "${doc.fileName}" ?`)) {
       // Remove from the local state
       setDocuments(prevDocuments => prevDocuments.filter(d => d.id !== doc.id));
-      // In a real app, you'd also call an API to delete the document
+      
+      // Update stats
+      setDocumentStats(prev => ({
+        ...prev,
+        totalDocuments: Math.max(0, prev.totalDocuments - 1)
+      }));
     }
   };
 
   const handleDownloadAll = () => {
     if (downloadId) {
       window.location.href = api.getDownloadUrl(downloadId);
+    } else {
+      alert("Aucun téléchargement disponible pour le moment");
     }
   };
 
@@ -405,12 +479,30 @@ const Dashboard: React.FC = () => {
               sessionId={tempSessionId || ''}
             />
           ) : (
-            <ConnectionForm 
-              onLogin={handleLogin}
-              onStartScraping={handleStartScraping}
-              isLoading={isLoading}
-              isConnected={isConnected}
-            />
+            <div className="bg-white rounded-lg shadow p-6 mb-6 slide-in-up">
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Configuration de la connexion SEAO</h2>
+              <ConnectionForm 
+                onLogin={handleLogin}
+                onStartScraping={handleStartScraping}
+                isLoading={isLoading}
+                isConnected={isConnected}
+              />
+              
+              {/* Bouton d'arrêt du téléchargement */}
+              {isLoading && taskId && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={handleStopDownload}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  >
+                    ⏹️ Arrêter le téléchargement
+                  </button>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Le téléchargement est en cours... Cliquez pour l'arrêter.
+                  </p>
+                </div>
+              )}
+            </div>
           )}
           
           <OperationStatus 
@@ -429,12 +521,12 @@ const Dashboard: React.FC = () => {
             <div className="mb-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-md font-medium text-gray-900">Documents disponibles</h3>
-                {downloadId && (
+                {documents.length > 0 && (
                   <button
                     onClick={handleDownloadAll}
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                   >
-                    Télécharger tous les documents
+                    📥 Télécharger tous les documents
                   </button>
                 )}
               </div>
@@ -449,27 +541,37 @@ const Dashboard: React.FC = () => {
 
           <div className="mt-8 p-4 bg-gray-100 rounded-lg">
             <h3 className="text-md font-medium text-gray-800 mb-2">Diagnostics</h3>
-            <button 
-              onClick={testBackendConnection}
-              className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
-            >
-              Test Backend Connection
-            </button>
-            
-            {/* Test button for security code form - visible in development mode */}
-            <button 
-              onClick={testSecurityCodeForm}
-              className="ml-3 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-            >
-              Test Security Code Form
-            </button>
-            
-            <p className="mt-2 text-xs text-gray-500">
-              Cette fonction vérifie la connexion au backend en envoyant une requête au point de terminaison /api/health.
-            </p>
-            <p className="mt-2 text-xs text-gray-600">
-              Utilisant l'URL: {import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}
-            </p>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-3">
+                <button 
+                  onClick={testBackendConnection}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+                >
+                  Test Backend Connection
+                </button>
+                
+                <button 
+                  onClick={testDownloadHistory}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Test Download History
+                </button>
+                
+                {/* Test button for security code form - visible in development mode */}
+                <button 
+                  onClick={testSecurityCodeForm}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                >
+                  Test Security Code Form
+                </button>
+              </div>
+              
+              <div className="text-xs text-gray-500 space-y-1">
+                <p>Backend Connection: Vérifie la connexion au serveur via /api/health</p>
+                <p>Download History: Teste la récupération de l'historique des téléchargements</p>
+                <p>URL utilisée: {import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
