@@ -155,7 +155,45 @@ export const api = {
     return fetchWithJson(`${API_BASE_URL}/scraper/status/${jobId}`);
   },
   
-  // Download functions
+  // ===== NOUVELLES FONCTIONS DE TÉLÉCHARGEMENT =====
+  
+  // Nouvelle API de téléchargement optimisée
+  async startDownloadEnhanced(sessionId: string, options: {
+    statut?: 'actifs' | 'tous' | 'clos';
+    limit?: number;
+  } = {}) {
+    console.log(`Starting enhanced download at ${API_BASE_URL}/download/start`);
+    
+    const payload = {
+      session_id: sessionId,
+      statut: options.statut || 'actifs',
+      limit: options.limit || 10
+    };
+      
+    return fetchWithJson(`${API_BASE_URL}/download/start`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+  
+  async checkDownloadStatusEnhanced(sessionId: string) {
+    return fetchWithJson(`${API_BASE_URL}/download/status/${sessionId}`);
+  },
+  
+  async stopDownload(sessionId: string) {
+    console.log(`Stopping download for session ${sessionId}`);
+    return fetchWithJson(`${API_BASE_URL}/download/stop`, {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+  },
+  
+  async getDownloadHistory() {
+    return fetchWithJson(`${API_BASE_URL}/download/history`);
+  },
+  
+  // ===== ANCIENNES FONCTIONS (COMPATIBILITÉ) =====
+  
   async startDownload(credentials?: { username: string; password: string }) {
     console.log(`Starting download at ${API_BASE_URL}/start_download`);
     
